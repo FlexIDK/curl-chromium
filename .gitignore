@@ -1,5 +1,4 @@
 curl-*/
-curl-7.87.0/
-curl-7.87.0-patch./
+curl-7.8*/
 .idea/
-curl-7.87.0.tar.xz
+curl-7.8*.tar.xz
