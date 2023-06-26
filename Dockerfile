@@ -11,7 +11,7 @@ WORKDIR /build
 
 # Common dependencies
 RUN apk update
-RUN apk add git build-base make cmake ninja curl zlib-dev patch linux-headers python3 python3-dev
+RUN apk add bash git build-base make cmake ninja curl zlib-dev patch linux-headers python3 python3-dev
 
 # The following are needed because we are going to change some autoconf scripts,
 # both for libnghttp2 and curl.
@@ -64,8 +64,13 @@ RUN cd nghttp2-${NGHTTP2_VERSION} && \
     make && make install
 
 # Download curl.
-ARG CURL_VERSION=7.84.0
-ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_84_0/curl-${CURL_VERSION}.tar.gz
+
+#ARG CURL_VERSION=7.84.0
+#ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_84_0/curl-${CURL_VERSION}.tar.gz
+
+ARG CURL_VERSION=7.85.0
+ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_85_0/curl-${CURL_VERSION}.tar.gz
+
 RUN curl -o curl-${CURL_VERSION}.tar.xz -L ${CURL_URL}
 RUN tar xf curl-${CURL_VERSION}.tar.xz
 
