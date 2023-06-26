@@ -1,6 +1,6 @@
 # curl-impersonate
 
-A special build of curl that can impersonate the four major browsers: Chrome, Edge, Safari. curl-impersonate is able to perform TLS and HTTP handshakes that are identical to that of a real browser.
+A special build of curl that can impersonate the major browsers: Chrome, Edge, Safari. curl-impersonate is able to perform TLS and HTTP handshakes that are identical to that of a real browser.
 
 ## Basic usage
 
