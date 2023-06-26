@@ -1,0 +1,179 @@
+diff -Naur ../boringssl-fips-20220613/ssl/internal.h ./ssl/internal.h
+--- ../boringssl-fips-20220613/ssl/internal.h	2022-08-01 22:43:30.000000000 +0300
++++ ./ssl/internal.h	2023-06-26 12:25:17.811431812 +0300
+@@ -556,8 +556,14 @@
+ 
+ // Bits for |algorithm_mac| (symmetric authentication).
+ #define SSL_SHA1 0x00000001u
++// curl-chromium:
++// SSL_SHA256 and SSL_SHA384 were removed in
++// https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++// but restored to chromium browsers with older ciphers.
++#define SSL_SHA256 0x00000002u
++#define SSL_SHA384 0x00000004u
+ // SSL_AEAD is set for all AEADs.
+-#define SSL_AEAD 0x00000002u
++#define SSL_AEAD 0x00000008u
+ 
+ // Bits for |algorithm_prf| (handshake digest).
+ #define SSL_HANDSHAKE_MAC_DEFAULT 0x1
+diff -Naur ../boringssl-fips-20220613/ssl/ssl_cipher.cc ./ssl/ssl_cipher.cc
+--- ../boringssl-fips-20220613/ssl/ssl_cipher.cc	2022-08-01 22:43:30.000000000 +0300
++++ ./ssl/ssl_cipher.cc	2023-06-26 12:26:21.586577464 +0300
+@@ -208,6 +208,37 @@
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
++    // curl-chromium: Ciphers 3C, 3D were removed in
++    // https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored here to chromium browsers with older ciphers. They are
++    // not expected to actually work; but just to be included in the TLS
++    // Client Hello.
++
++    // TLS v1.2 ciphersuites
++
++    // Cipher 3C
++    {
++     TLS1_TXT_RSA_WITH_AES_128_SHA256,
++     "TLS_RSA_WITH_AES_128_CBC_SHA256",
++     TLS1_CK_RSA_WITH_AES_128_SHA256,
++     SSL_kRSA,
++     SSL_aRSA,
++     SSL_AES128,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++    // Cipher 3D
++    {
++     TLS1_TXT_RSA_WITH_AES_256_SHA256,
++     "TLS_RSA_WITH_AES_256_CBC_SHA256",
++     TLS1_CK_RSA_WITH_AES_256_SHA256,
++     SSL_kRSA,
++     SSL_aRSA,
++     SSL_AES256,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++
+     // PSK cipher suites.
+ 
+     // Cipher 8C
+@@ -298,6 +329,23 @@
+       SSL_HANDSHAKE_MAC_SHA256,
+     },
+ 
++    // curl-chromium: Cipher C008 was missing from BoringSSL,
++    // probably because it is weak. Add it back from OpenSSL (ssl/s3_lib.c)
++    // where it is called ECDHE-ECDSA-DES-CBC3-SHA.
++    // It's not supposed to really work but just appear in the TLS client hello.
++
++    // Cipher C008
++    {
++     "ECDHE-ECDSA-DES-CBC3-SHA",
++     "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA",
++     0x0300C008,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_3DES,
++     SSL_SHA1,
++     SSL_HANDSHAKE_MAC_DEFAULT,
++    },
++
+     // Cipher C009
+     {
+      TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+@@ -322,6 +370,21 @@
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
++    // curl-chromium: Cipher C012 was missing from BoringSSL,
++    // probably because it is weak. Add it back from OpenSSL (ssl/s3_lib.c)
++    // where it is called ECDHE-RSA-DES-CBC3-SHA
++    // It's not supposed to really work but just appear in the TLS client hello.
++    {
++     "ECDHE-RSA-DES-CBC3-SHA",
++     "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
++     0x0300C012,
++     SSL_kECDHE,
++     SSL_aRSA,
++     SSL_3DES,
++     SSL_SHA1,
++     SSL_HANDSHAKE_MAC_DEFAULT,
++    },
++
+     // Cipher C013
+     {
+      TLS1_TXT_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+@@ -346,6 +409,59 @@
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
++    // curl-chromium: Ciphers C023, C024, C027, C028 were removed in
++    // https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored here to chromium browsers with older ciphers. They are
++    // not expected to actually work; but just to be included in the TLS
++    // Client Hello.
++
++    // HMAC based TLS v1.2 ciphersuites from RFC5289
++
++    // Cipher C023
++    {
++     TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_SHA256,
++     "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
++     TLS1_CK_ECDHE_ECDSA_WITH_AES_128_SHA256,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_AES128,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++    // Cipher C024
++    {
++     TLS1_TXT_ECDHE_ECDSA_WITH_AES_256_SHA384,
++     "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
++     TLS1_CK_ECDHE_ECDSA_WITH_AES_256_SHA384,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_AES256,
++     SSL_SHA384,
++     SSL_HANDSHAKE_MAC_SHA384,
++    },
++    // Cipher C027
++    {
++     TLS1_TXT_ECDHE_RSA_WITH_AES_128_SHA256,
++     "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
++     TLS1_CK_ECDHE_RSA_WITH_AES_128_SHA256,
++     SSL_kECDHE,
++     SSL_aRSA,
++     SSL_AES128,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++    // Cipher C028
++    {
++     TLS1_TXT_ECDHE_RSA_WITH_AES_256_SHA384,
++     "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
++     TLS1_CK_ECDHE_RSA_WITH_AES_256_SHA384,
++     SSL_kECDHE,
++     SSL_aRSA,
++     SSL_AES256,
++     SSL_SHA384,
++     SSL_HANDSHAKE_MAC_SHA384,
++    },
++
+     // GCM based TLS v1.2 ciphersuites from RFC 5289
+ 
+     // Cipher C02B
+@@ -538,6 +654,12 @@
+     {"SHA1", ~0u, ~0u, ~0u, SSL_SHA1, 0},
+     {"SHA", ~0u, ~0u, ~0u, SSL_SHA1, 0},
+ 
++    // curl-chromium:
++    // Removed in https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored to chromium browsers with older ciphers.
++    {"SHA256", ~0u, ~0u, ~0u, SSL_SHA256, 0},
++    {"SHA384", ~0u, ~0u, ~0u, SSL_SHA384, 0},
++
+     // Legacy protocol minimum version aliases. "TLSv1" is intentionally the
+     // same as "SSLv3".
+     {"SSLv3", ~0u, ~0u, ~0u, ~0u, SSL3_VERSION},
