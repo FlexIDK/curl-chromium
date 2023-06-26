@@ -65,11 +65,8 @@ RUN cd nghttp2-${NGHTTP2_VERSION} && \
 
 # Download curl.
 
-#ARG CURL_VERSION=7.84.0
-#ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_84_0/curl-${CURL_VERSION}.tar.gz
-
-ARG CURL_VERSION=7.85.0
-ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_85_0/curl-${CURL_VERSION}.tar.gz
+ARG CURL_VERSION=7.84.0
+ARG CURL_URL=https://github.com/curl/curl/releases/download/curl-7_84_0/curl-${CURL_VERSION}.tar.gz
 
 RUN curl -o curl-${CURL_VERSION}.tar.xz -L ${CURL_URL}
 RUN tar xf curl-${CURL_VERSION}.tar.xz
