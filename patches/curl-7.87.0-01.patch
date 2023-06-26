@@ -1,31 +1,31 @@
 diff -Naru ../curl-7.87.0/Makefile.am ./Makefile.am
 --- ../curl-7.87.0/Makefile.am	2022-11-28 10:44:52.000000000 +0300
-+++ ./Makefile.am	2023-06-26 20:47:47.466239691 +0300
++++ ./Makefile.am	2023-06-27 00:37:19.373391228 +0300
 @@ -155,13 +155,13 @@
   $(VC14_SRCVCXPROJ) $(VC14_10_LIBVCXPROJ) $(VC14_10_SRCVCXPROJ)              \
   $(VC14_30_LIBVCXPROJ) $(VC14_30_SRCVCXPROJ)
  
 -bin_SCRIPTS = curl-config
-+bin_SCRIPTS = curl-chromium-config
++bin_SCRIPTS = curl-impersonate-chrome-config
  
  SUBDIRS = lib src
  DIST_SUBDIRS = $(SUBDIRS) tests packages scripts include docs
  
  pkgconfigdir = $(libdir)/pkgconfig
 -pkgconfig_DATA = libcurl.pc
-+pkgconfig_DATA = libcurl-chromium.pc
++pkgconfig_DATA = libcurl-impersonate-chrome.pc
  
  # List of files required to generate VC IDE .dsp, .vcproj and .vcxproj files
  include lib/Makefile.inc
 diff -Naru ../curl-7.87.0/configure.ac ./configure.ac
 --- ../curl-7.87.0/configure.ac	2022-12-19 10:48:23.000000000 +0300
-+++ ./configure.ac	2023-06-26 20:48:04.257302511 +0300
++++ ./configure.ac	2023-06-27 00:37:19.373391228 +0300
 @@ -1386,7 +1386,8 @@
  
    dnl if given with a prefix, we set -L and -I based on that
    if test -n "$PREFIX_BROTLI"; then
 -    LIB_BROTLI="-lbrotlidec"
-+    # curl-chromium: Use static libbrotli
++    # curl-impersonate: Use static libbrotli
 +    LIB_BROTLI="-lbrotlidec-static -lbrotlicommon-static"
      LD_BROTLI=-L${PREFIX_BROTLI}/lib$libsuff
      CPP_BROTLI=-I${PREFIX_BROTLI}/include
@@ -36,7 +36,7 @@ diff -Naru ../curl-7.87.0/configure.ac ./configure.ac
  
 -  AC_CHECK_LIB(brotlidec, BrotliDecoderDecompress)
 +  AC_CHECK_LIB(brotlidec, BrotliDecoderDecompress,
-+    # curl-chromium: Define 'action-if-found' explicitly to prevent
++    # curl-impersonate: Define 'action-if-found' explicitly to prevent
 +    # -lbrotlidec from being added to LIBS (already added before)
 +    AC_DEFINE(HAVE_LIBBROTLI, 1, [Define to 1 if libbrotli exists])
 +  )
@@ -49,23 +49,23 @@ diff -Naru ../curl-7.87.0/configure.ac ./configure.ac
             packages/vms/Makefile \
 -           curl-config \
 -           libcurl.pc
-+           curl-chromium-config:curl-config.in \
-+           libcurl-chromium.pc:libcurl.pc.in
++           curl-impersonate-chrome-config:curl-config.in \
++           libcurl-impersonate-chrome.pc:libcurl.pc.in
  ])
  AC_OUTPUT
  
 diff -Naru ../curl-7.87.0/curl-config.in ./curl-config.in
 --- ../curl-7.87.0/curl-config.in	2022-11-28 10:44:52.000000000 +0300
-+++ ./curl-config.in	2023-06-26 20:48:04.257302511 +0300
++++ ./curl-config.in	2023-06-27 00:37:19.373391228 +0300
 @@ -163,9 +163,9 @@
             CURLLIBDIR=""
          fi
          if test "X@ENABLE_SHARED@" = "Xno"; then
 -          echo ${CURLLIBDIR}-lcurl @LIBCURL_LIBS@
-+          echo ${CURLLIBDIR}-lcurl-chromium @LIBCURL_LIBS@
++          echo ${CURLLIBDIR}-lcurl-impersonate-chrome @LIBCURL_LIBS@
          else
 -          echo ${CURLLIBDIR}-lcurl
-+          echo ${CURLLIBDIR}-lcurl-chromium
++          echo ${CURLLIBDIR}-lcurl-impersonate-chrome
          fi
          ;;
      --ssl-backends)
@@ -74,32 +74,39 @@ diff -Naru ../curl-7.87.0/curl-config.in ./curl-config.in
      --static-libs)
          if test "X@ENABLE_STATIC@" != "Xno" ; then
 -          echo "@libdir@/libcurl.@libext@" @LDFLAGS@ @LIBCURL_LIBS@
-+          echo @libdir@/libcurl-chromium.@libext@ @LDFLAGS@ @LIBCURL_LIBS@
++          echo @libdir@/libcurl-impersonate-chrome.@libext@ @LDFLAGS@ @LIBCURL_LIBS@
          else
            echo "curl was built with static libraries disabled" >&2
            exit 1
+@@ -193,4 +193,4 @@
+     shift
+ done
+ 
+-exit 0
++exit 0
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/include/curl/curl.h ./include/curl/curl.h
 --- ../curl-7.87.0/include/curl/curl.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./include/curl/curl.h	2023-06-26 19:25:53.496633776 +0300
++++ ./include/curl/curl.h	2023-06-27 00:44:21.736560430 +0300
 @@ -2203,6 +2203,50 @@
    /* Can leak things, gonna exit() soon */
    CURLOPT(CURLOPT_QUICK_EXIT, CURLOPTTYPE_LONG, 322),
  
-+  /* curl-chromium: A list of headers used by the chromiumd browser.
++  /* curl-impersonate: A list of headers used by the impersonated browser.
 +   * If given, merged with CURLOPT_HTTPHEADER. */
 +  CURLOPT(CURLOPT_HTTPBASEHEADER, CURLOPTTYPE_SLISTPOINT, 323),
 +
-+  /* curl-chromium: A list of TLS signature hash algorithms.
++  /* curl-impersonate: A list of TLS signature hash algorithms.
 +   * See https://datatracker.ietf.org/doc/html/rfc5246#section-7.4.1.4.1 */
 +  CURLOPT(CURLOPT_SSL_SIG_HASH_ALGS, CURLOPTTYPE_STRINGPOINT, 324),
 +
-+  /* curl-chromium: Whether to enable ALPS in TLS or not.
++  /* curl-impersonate: Whether to enable ALPS in TLS or not.
 +   * See https://datatracker.ietf.org/doc/html/draft-vvv-tls-alps.
 +   * Support for ALPS is minimal and is intended only for the TLS client
 +   * hello to match. */
 +  CURLOPT(CURLOPT_SSL_ENABLE_ALPS, CURLOPTTYPE_LONG, 325),
 +
-+  /* curl-chromium: Comma-separated list of certificate compression
++  /* curl-impersonate: Comma-separated list of certificate compression
 +   * algorithms to use. These are published in the client hello.
 +   * Supported algorithms are "zlib" and "brotli".
 +   * See https://datatracker.ietf.org/doc/html/rfc8879 */
@@ -109,7 +116,7 @@ diff -Naru ../curl-7.87.0/include/curl/curl.h ./include/curl/curl.h
 +  CURLOPT(CURLOPT_SSL_ENABLE_TICKET, CURLOPTTYPE_LONG, 327),
 +
 +  /*
-+   * curl-chromium:
++   * curl-impersonate:
 +   * Set the order of the HTTP/2 pseudo headers. The value must contain
 +   * the letters 'm', 'a', 's', 'p' representing the pseudo-headers
 +   * ":method", ":authority", ":scheme", ":path" in the desired order of
@@ -118,13 +125,13 @@ diff -Naru ../curl-7.87.0/include/curl/curl.h ./include/curl/curl.h
 +  CURLOPT(CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER, CURLOPTTYPE_STRINGPOINT, 328),
 +
 +  /*
-+   * curl-chromium:
++   * curl-impersonate:
 +   * Disable HTTP2 server push in the HTTP2 SETTINGS.
 +   */
 +  CURLOPT(CURLOPT_HTTP2_NO_SERVER_PUSH, CURLOPTTYPE_LONG, 329),
 +
-+  /* 
-+   * curl-chromium: Whether to enable Boringssl permute extensions
++  /*
++   * curl-impersonate: Whether to enable Boringssl permute extensions
 +   * See https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#SSL_set_permute_extensions.
 +   */
 +  CURLOPT(CURLOPT_SSL_PERMUTE_EXTENSIONS, CURLOPTTYPE_LONG, 330),
@@ -132,20 +139,27 @@ diff -Naru ../curl-7.87.0/include/curl/curl.h ./include/curl/curl.h
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
  
+@@ -3205,4 +3249,4 @@
+ #endif /* __STDC__ >= 1 */
+ #endif /* gcc >= 4.3 && !__cplusplus && !CURL_DISABLE_TYPECHECK */
+ 
+-#endif /* CURLINC_CURL_H */
++#endif /* CURLINC_CURL_H */
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/include/curl/easy.h ./include/curl/easy.h
 --- ../curl-7.87.0/include/curl/easy.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./include/curl/easy.h	2023-06-26 19:25:53.476633719 +0300
++++ ./include/curl/easy.h	2023-06-27 00:37:19.373391228 +0300
 @@ -44,6 +44,16 @@
  CURL_EXTERN void curl_easy_cleanup(CURL *curl);
  
  /*
-+ * curl-chromium: Tell libcurl to chromium a browser.
++ * curl-impersonate: Tell libcurl to impersonate a browser.
 + * This is a wrapper function that calls curl_easy_setopt()
 + * multiple times with all the parameters required. That's also why it was
 + * created as a separate API function and not just as another option to
 + * curl_easy_setopt().
 + */
-+CURL_EXTERN CURLcode curl_easy_chromium(CURL *curl, const char *target,
++CURL_EXTERN CURLcode curl_easy_impersonate(CURL *curl, const char *target,
 +                                           int default_headers);
 +
 +/*
@@ -154,13 +168,13 @@ diff -Naru ../curl-7.87.0/include/curl/easy.h ./include/curl/easy.h
   * DESCRIPTION
 diff -Naru ../curl-7.87.0/lib/Makefile.am ./lib/Makefile.am
 --- ../curl-7.87.0/lib/Makefile.am	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/Makefile.am	2023-06-26 20:48:04.257302511 +0300
++++ ./lib/Makefile.am	2023-06-27 01:00:58.805388944 +0300
 @@ -31,7 +31,7 @@
   config-os400.h setup-os400.h $(CMAKE_DIST) setup-win32.h .checksrc \
   Makefile.soname
  
 -lib_LTLIBRARIES = libcurl.la
-+lib_LTLIBRARIES = libcurl-chromium.la
++lib_LTLIBRARIES = libcurl-impersonate-chrome.la
  
  if BUILD_UNITTESTS
  noinst_LTLIBRARIES = libcurlu.la
@@ -169,49 +183,49 @@ diff -Naru ../curl-7.87.0/lib/Makefile.am ./lib/Makefile.am
  include Makefile.inc
  
 -libcurl_la_SOURCES = $(CSOURCES) $(HHEADERS)
-+libcurl_chromium_la_SOURCES = $(CSOURCES) $(HHEADERS)
++libcurl_impersonate_chrome_la_SOURCES = $(CSOURCES) $(HHEADERS)
  libcurlu_la_SOURCES = $(CSOURCES) $(HHEADERS)
  
 -libcurl_la_CPPFLAGS_EXTRA =
 -libcurl_la_LDFLAGS_EXTRA =
 -libcurl_la_CFLAGS_EXTRA =
-+libcurl_chromium_la_CPPFLAGS_EXTRA =
-+libcurl_chromium_la_LDFLAGS_EXTRA =
-+libcurl_chromium_la_CFLAGS_EXTRA =
++libcurl_impersonate_chrome_la_CPPFLAGS_EXTRA =
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA =
++libcurl_impersonate_chrome_la_CFLAGS_EXTRA =
  
  if CURL_LT_SHLIB_USE_VERSION_INFO
 -libcurl_la_LDFLAGS_EXTRA += $(VERSIONINFO)
-+libcurl_chromium_la_LDFLAGS_EXTRA += $(VERSIONINFO)
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA += $(VERSIONINFO)
  endif
  
  if CURL_LT_SHLIB_USE_NO_UNDEFINED
 -libcurl_la_LDFLAGS_EXTRA += -no-undefined
-+libcurl_chromium_la_LDFLAGS_EXTRA += -no-undefined
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA += -no-undefined
  endif
  
  if CURL_LT_SHLIB_USE_MIMPURE_TEXT
 -libcurl_la_LDFLAGS_EXTRA += -mimpure-text
-+libcurl_chromium_la_LDFLAGS_EXTRA += -mimpure-text
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA += -mimpure-text
  endif
  
  if CURL_LT_SHLIB_USE_VERSIONED_SYMBOLS
 -libcurl_la_LDFLAGS_EXTRA += -Wl,--version-script=libcurl.vers
-+libcurl_chromium_la_LDFLAGS_EXTRA += -Wl,--version-script=libcurl.vers
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA += -Wl,--version-script=libcurl.vers
  else
  # if symbol-hiding is enabled, hide them!
  if DOING_CURL_SYMBOL_HIDING
 -libcurl_la_LDFLAGS_EXTRA += -export-symbols-regex '^curl_.*'
-+libcurl_chromium_la_LDFLAGS_EXTRA += -export-symbols-regex '^curl_.*'
++libcurl_impersonate_chrome_la_LDFLAGS_EXTRA += -export-symbols-regex '^curl_.*'
  endif
  endif
  
  if USE_CPPFLAG_CURL_STATICLIB
 -libcurl_la_CPPFLAGS_EXTRA += -DCURL_STATICLIB
-+libcurl_chromium_la_LDFLAGS_EXTRA += -DCURL_STATICLIB
++libcurl_impersonate_chrome_la_CPPFLAGS_EXTRA += -DCURL_STATICLIB
  else
  if HAVE_WINDRES
 -libcurl_la_SOURCES += $(LIB_RCFILES)
-+libcurl_chromium_la_SOURCES += $(LIB_RCFILES)
++libcurl_impersonate_chrome_la_SOURCES += $(LIB_RCFILES)
  $(LIB_RCFILES): $(top_srcdir)/include/curl/curlver.h
  endif
  endif
@@ -219,573 +233,46 @@ diff -Naru ../curl-7.87.0/lib/Makefile.am ./lib/Makefile.am
  if DOING_CURL_SYMBOL_HIDING
 -libcurl_la_CPPFLAGS_EXTRA += -DCURL_HIDDEN_SYMBOLS
 -libcurl_la_CFLAGS_EXTRA += $(CFLAG_CURL_SYMBOL_HIDING)
-+libcurl_chromium_la_LDFLAGS_EXTRA += -DCURL_HIDDEN_SYMBOLS
-+libcurl_chromium_la_CFLAGS_EXTRA += $(CFLAG_CURL_SYMBOL_HIDING)
++libcurl_impersonate_chrome_la_CPPFLAGS_EXTRA += -DCURL_HIDDEN_SYMBOLS
++libcurl_impersonate_chrome_la_CFLAGS_EXTRA += $(CFLAG_CURL_SYMBOL_HIDING)
  endif
  
 -libcurl_la_CPPFLAGS = $(AM_CPPFLAGS) $(libcurl_la_CPPFLAGS_EXTRA)
 -libcurl_la_LDFLAGS = $(AM_LDFLAGS) $(libcurl_la_LDFLAGS_EXTRA) $(LDFLAGS) $(LIBCURL_LIBS)
 -libcurl_la_CFLAGS = $(AM_CFLAGS) $(libcurl_la_CFLAGS_EXTRA)
-+libcurl_la_CPPFLAGS = $(AM_CPPFLAGS) $(libcurl_chromium_la_CPPFLAGS_EXTRA)
-+libcurl_la_LDFLAGS = $(AM_LDFLAGS) $(libcurl_chromium_la_LDFLAGS_EXTRA) $(LDFLAGS) $(LIBCURL_LIBS)
-+libcurl_la_CFLAGS = $(AM_CFLAGS) $(libcurl_chromium_la_CFLAGS_EXTRA)
++libcurl_impersonate_chrome_la_CPPFLAGS = $(AM_CPPFLAGS) $(libcurl_impersonate_chrome_la_CPPFLAGS_EXTRA)
++libcurl_impersonate_chrome_la_LDFLAGS = $(AM_LDFLAGS) $(libcurl_impersonate_chrome_la_LDFLAGS_EXTRA) $(LDFLAGS) $(LIBCURL_LIBS)
++libcurl_impersonate_chrome_la_CFLAGS = $(AM_CFLAGS) $(libcurl_impersonate_chrome_la_CFLAGS_EXTRA)
  
  libcurlu_la_CPPFLAGS = $(AM_CPPFLAGS) -DCURL_STATICLIB -DUNITTESTS
  libcurlu_la_LDFLAGS = $(AM_LDFLAGS) -static $(LIBCURL_LIBS)
+@@ -146,4 +146,4 @@
+ if HAVE_WINDRES
+ .rc.lo:
+ 	$(LIBTOOL) --tag=RC --mode=compile $(RC) -I$(top_srcdir)/include $(RCFLAGS) -i $< -o $@
+-endif
++endif
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/Makefile.inc ./lib/Makefile.inc
 --- ../curl-7.87.0/lib/Makefile.inc	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/Makefile.inc	2023-06-26 19:25:53.466633690 +0300
++++ ./lib/Makefile.inc	2023-06-27 00:37:19.373391228 +0300
 @@ -165,6 +165,7 @@
    idn.c              \
    if2ip.c            \
    imap.c             \
-+  chromium.c      \
++  impersonate.c      \
    inet_ntop.c        \
    inet_pton.c        \
    krb5.c             \
-diff -Naru ../curl-7.87.0/lib/chromium.c ./lib/chromium.c
---- ../curl-7.87.0/lib/chromium.c	1970-01-01 03:00:00.000000000 +0300
-+++ ./lib/chromium.c	2023-06-26 21:06:01.947216182 +0300
-@@ -0,0 +1,481 @@
-+#include "curl_setup.h"
-+#include "../include/curl/curl.h"
-+
-+#include "chromium.h"
-+
-+const struct chromium_opts impersonations[] = {
-+  {
-+    .target = "chrome99",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "chrome100",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"100\", \"Google Chrome\";v=\"100\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "chrome101",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"101\", \"Google Chrome\";v=\"101\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "chrome104",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \"Chromium\";v=\"104\", \" Not A;Brand\";v=\"99\", \"Google Chrome\";v=\"104\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "chrome107",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \"Google Chrome\";v=\"107\", \"Chromium\";v=\"107\", \"Not=A?Brand\";v=\"24\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    },
-+    .http2_no_server_push = true
-+  },
-+  {
-+      .target = "chrome110",
-+      .httpversion = CURL_HTTP_VERSION_2_0,
-+      .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+      .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+      .npn = false,
-+      .alpn = true,
-+      .alps = true,
-+      .tls_permute_extensions = true,
-+      .tls_session_ticket = true,
-+      .cert_compression = "brotli",
-+      .http_headers = {
-+              "sec-ch-ua: \"Chromium\";v=\"110\", \"Not A(Brand\";v=\"24\", \"Google Chrome\";v=\"110\"",
-+              "sec-ch-ua-mobile: ?0",
-+              "sec-ch-ua-platform: \"Windows\"",
-+              "Upgrade-Insecure-Requests: 1",
-+              "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-+              "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-+              "Sec-Fetch-Site: none",
-+              "Sec-Fetch-Mode: navigate",
-+              "Sec-Fetch-User: ?1",
-+              "Sec-Fetch-Dest: document",
-+              "Accept-Encoding: gzip, deflate, br",
-+              "Accept-Language: en-US,en;q=0.9"
-+      },
-+      .http2_no_server_push = true
-+  },
-+  {
-+    .target = "chrome99_android",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"",
-+      "sec-ch-ua-mobile: ?1",
-+      "sec-ch-ua-platform: \"Android\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.58 Mobile Safari/537.36",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "edge99",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Microsoft Edge\";v=\"99\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36 Edg/99.0.1150.30",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "edge101",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "ECDHE-ECDSA-AES128-GCM-SHA256,"
-+      "ECDHE-RSA-AES128-GCM-SHA256,"
-+      "ECDHE-ECDSA-AES256-GCM-SHA384,"
-+      "ECDHE-RSA-AES256-GCM-SHA384,"
-+      "ECDHE-ECDSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-CHACHA20-POLY1305,"
-+      "ECDHE-RSA-AES128-SHA,"
-+      "ECDHE-RSA-AES256-SHA,"
-+      "AES128-GCM-SHA256,"
-+      "AES256-GCM-SHA384,"
-+      "AES128-SHA,"
-+      "AES256-SHA",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = true,
-+    .tls_session_ticket = true,
-+    .cert_compression = "brotli",
-+    .http_headers = {
-+      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"101\", \"Microsoft Edge\";v=\"101\"",
-+      "sec-ch-ua-mobile: ?0",
-+      "sec-ch-ua-platform: \"Windows\"",
-+      "Upgrade-Insecure-Requests: 1",
-+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36 Edg/101.0.1210.47",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-User: ?1",
-+      "Sec-Fetch-Dest: document",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Accept-Language: en-US,en;q=0.9"
-+    }
-+  },
-+  {
-+    .target = "safari15_3",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+        "TLS_AES_128_GCM_SHA256,"
-+        "TLS_AES_256_GCM_SHA384,"
-+        "TLS_CHACHA20_POLY1305_SHA256,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
-+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
-+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
-+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
-+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
-+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
-+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,"
-+        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,"
-+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
-+        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
-+        "TLS_RSA_WITH_AES_256_GCM_SHA384,"
-+        "TLS_RSA_WITH_AES_128_GCM_SHA256,"
-+        "TLS_RSA_WITH_AES_256_CBC_SHA256,"
-+        "TLS_RSA_WITH_AES_128_CBC_SHA256,"
-+        "TLS_RSA_WITH_AES_256_CBC_SHA,"
-+        "TLS_RSA_WITH_AES_128_CBC_SHA,"
-+        "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
-+        "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
-+        "TLS_RSA_WITH_3DES_EDE_CBC_SHA,",
-+    .curves = "X25519:P-256:P-384:P-521",
-+    .sig_hash_algs =
-+        "ecdsa_secp256r1_sha256,"
-+        "rsa_pss_rsae_sha256,"
-+        "rsa_pkcs1_sha256,"
-+        "ecdsa_secp384r1_sha384,"
-+        "ecdsa_sha1,"
-+        "rsa_pss_rsae_sha384,"
-+        "rsa_pss_rsae_sha384,"
-+        "rsa_pkcs1_sha384,"
-+        "rsa_pss_rsae_sha512,"
-+        "rsa_pkcs1_sha512,"
-+        "rsa_pkcs1_sha1",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = false,
-+    .tls_session_ticket = false,
-+    .http_headers = {
-+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.3 Safari/605.1.15",
-+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-+        "Accept-Language: en-us",
-+        "Accept-Encoding: gzip, deflate, br"
-+    },
-+    .http2_pseudo_headers_order = "mspa"
-+  },
-+  {
-+    .target = "safari15_5",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
-+      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
-+      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_RSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_RSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_RSA_WITH_AES_256_CBC_SHA,"
-+      "TLS_RSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
-+      "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
-+      "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
-+    .curves = "X25519:P-256:P-384:P-521",
-+    .sig_hash_algs =
-+      "ecdsa_secp256r1_sha256,"
-+      "rsa_pss_rsae_sha256,"
-+      "rsa_pkcs1_sha256,"
-+      "ecdsa_secp384r1_sha384,"
-+      "ecdsa_sha1,"
-+      "rsa_pss_rsae_sha384,"
-+      "rsa_pss_rsae_sha384,"
-+      "rsa_pkcs1_sha384,"
-+      "rsa_pss_rsae_sha512,"
-+      "rsa_pkcs1_sha512,"
-+      "rsa_pkcs1_sha1",
-+    .npn = false,
-+    .alpn = true,
-+    .alps = false,
-+    .tls_session_ticket = false,
-+    .cert_compression = "zlib",
-+    .http_headers = {
-+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15",
-+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-+        "Accept-Language: en-GB,en-US;q=0.9,en;q=0.8",
-+        "Accept-Encoding: gzip, deflate, br"
-+    },
-+    .http2_pseudo_headers_order = "mspa"
-+  },
-+  {
-+    /* Last one must be NULL. */
-+    .target = NULL
-+  }
-+};
-diff -Naru ../curl-7.87.0/lib/chromium.h ./lib/chromium.h
---- ../curl-7.87.0/lib/chromium.h	1970-01-01 03:00:00.000000000 +0300
-+++ ./lib/chromium.h	2023-06-26 19:25:53.466633690 +0300
-@@ -0,0 +1,45 @@
-+#ifndef HEADER_CURL_chromium_H
-+#define HEADER_CURL_chromium_H
-+
-+#define chromium_MAX_HEADERS 32
-+
-+/*
-+ * curl-chromium: Options to be set for each supported target browser.
-+ */
-+struct chromium_opts {
-+  const char *target;
-+  int httpversion;
-+  int ssl_version;
-+  const char *ciphers;
-+  /* Elliptic curves (TLS extension 10).
-+   * Passed to CURLOPT_SSL_EC_CURVES */
-+  const char *curves;
-+  /* Signature hash algorithms (TLS extension 13).
-+   * Passed to CURLOPT_SSL_SIG_HASH_ALGS */
-+  const char *sig_hash_algs;
-+  /* Enable TLS NPN extension. */
-+  bool npn;
-+  /* Enable TLS ALPN extension. */
-+  bool alpn;
-+  /* Enable TLS ALPS extension. */
-+  bool alps;
-+  /* Enable TLS session ticket extension. */
-+  bool tls_session_ticket;
-+  /* TLS certificate compression algorithms.
-+   * (TLS extension 27) */
-+  const char *cert_compression;
-+  const char *http_headers[chromium_MAX_HEADERS];
-+  const char *http2_pseudo_headers_order;
-+  bool http2_no_server_push;
-+  bool tls_permute_extensions;
-+  /* Other TLS options will come here in the future once they are
-+   * configurable through curl_easy_setopt() */
-+};
-+
-+/*
-+ * curl-chromium: Global array of supported browsers and their
-+ * impersonation options.
-+ */
-+extern const struct chromium_opts impersonations[];
-+
-+#endif /* HEADER_CURL_chromium_H */
 diff -Naru ../curl-7.87.0/lib/easy.c ./lib/easy.c
 --- ../curl-7.87.0/lib/easy.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/easy.c	2023-06-26 21:02:30.020422742 +0300
++++ ./lib/easy.c	2023-06-27 01:02:36.828595930 +0300
 @@ -80,6 +80,8 @@
  #include "dynbuf.h"
  #include "altsvc.h"
  #include "hsts.h"
 +#include "strcase.h"
-+#include "chromium.h"
++#include "impersonate.h"
  
  #include "easy_lock.h"
  
@@ -793,16 +280,16 @@ diff -Naru ../curl-7.87.0/lib/easy.c ./lib/easy.c
  }
  
  /*
-+ * curl-chromium:
++ * curl-impersonate:
 + * Call curl_easy_setopt() with all the needed options as defined in the
 + * 'impersonations' array.
 + * */
-+CURLcode curl_easy_chromium(struct Curl_easy *data, const char *target,
++CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
 +                               int default_headers)
 +{
 +  int i;
 +  int ret;
-+  const struct chromium_opts *opts = NULL;
++  const struct impersonate_opts *opts = NULL;
 +  struct curl_slist *headers = NULL;
 +
 +  for(opts = impersonations; opts->target != NULL; opts++) {
@@ -881,7 +368,7 @@ diff -Naru ../curl-7.87.0/lib/easy.c ./lib/easy.c
 +
 +  if(default_headers) {
 +    /* Build a linked list out of the static array of headers. */
-+    for(i = 0; i < chromium_MAX_HEADERS; i++) {
++    for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
 +      if(opts->http_headers[i]) {
 +        headers = curl_slist_append(headers, opts->http_headers[i]);
 +        if(!headers) {
@@ -938,20 +425,20 @@ diff -Naru ../curl-7.87.0/lib/easy.c ./lib/easy.c
    }
  
 +  /*
-+   * curl-chromium: Hook into curl_easy_init() to set the required options
++   * curl-impersonate: Hook into curl_easy_init() to set the required options
 +   * from an environment variable.
-+   * This is a bit hacky but allows seamless integration of libcurl-chromium
++   * This is a bit hacky but allows seamless integration of libcurl-impersonate
 +   * without code modifications to the app.
 +   */
-+  env_target = curl_getenv("CURL_chromium");
++  env_target = curl_getenv("CURL_IMPERSONATE");
 +  if(env_target) {
-+    env_headers = curl_getenv("CURL_chromium_HEADERS");
++    env_headers = curl_getenv("CURL_IMPERSONATE_HEADERS");
 +    if(env_headers) {
-+      result = curl_easy_chromium(data, env_target,
++      result = curl_easy_impersonate(data, env_target,
 +                                     !strcasecompare(env_headers, "no"));
 +      free(env_headers);
 +    } else {
-+      result = curl_easy_chromium(data, env_target, true);
++      result = curl_easy_impersonate(data, env_target, true);
 +    }
 +    free(env_target);
 +    if(result) {
@@ -993,27 +480,34 @@ diff -Naru ../curl-7.87.0/lib/easy.c ./lib/easy.c
  #endif
 +
 +  /*
-+   * curl-chromium: Hook into curl_easy_reset() to set the required options
++   * curl-impersonate: Hook into curl_easy_reset() to set the required options
 +   * from an environment variable, just like in curl_easy_init().
 +   */
-+  env_target = curl_getenv("CURL_chromium");
++  env_target = curl_getenv("CURL_IMPERSONATE");
 +  if(env_target) {
-+    env_headers = curl_getenv("CURL_chromium_HEADERS");
++    env_headers = curl_getenv("CURL_IMPERSONATE_HEADERS");
 +    if(env_headers) {
-+      curl_easy_chromium(data, env_target,
++      curl_easy_impersonate(data, env_target,
 +                            !strcasecompare(env_headers, "no"));
 +      free(env_headers);
 +    } else {
-+      curl_easy_chromium(data, env_target, true);
++      curl_easy_impersonate(data, env_target, true);
 +    }
 +    free(env_target);
 +  }
  }
  
  /*
+@@ -1338,4 +1520,4 @@
+     /* No connections, so just return success */
+     return CURLE_OK;
+   }
+-}
++}
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/easyoptions.c ./lib/easyoptions.c
 --- ../curl-7.87.0/lib/easyoptions.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/easyoptions.c	2023-06-26 18:35:20.026213591 +0300
++++ ./lib/easyoptions.c	2023-06-27 00:44:21.726559992 +0300
 @@ -132,8 +132,12 @@
    {"HSTS_CTRL", CURLOPT_HSTS_CTRL, CURLOT_LONG, 0},
    {"HTTP09_ALLOWED", CURLOPT_HTTP09_ALLOWED, CURLOT_LONG, 0},
@@ -1058,10 +552,12 @@ diff -Naru ../curl-7.87.0/lib/easyoptions.c ./lib/easyoptions.c
 -  return ((CURLOPT_LASTENTRY%10000) != (322 + 1));
 +  return ((CURLOPT_LASTENTRY%10000) != (330 + 1));
  }
- #endif
+-#endif
++#endif
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
 --- ../curl-7.87.0/lib/h2h3.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/h2h3.c	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/h2h3.c	2023-06-27 00:37:19.373391228 +0300
 @@ -41,10 +41,6 @@
  
  #if defined(USE_NGHTTP2) || defined(ENABLE_QUIC)
@@ -1078,7 +574,7 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
  }
  
 +/*
-+ * curl-chromium:
++ * curl-impersonate:
 + * Determine the position of HTTP/2 pseudo headers.
 + * The pseudo headers ":method", ":path", ":scheme", ":authority"
 + * are sent in different order by different browsers. An important part of the
@@ -1143,7 +639,7 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
 -  nva[0].namelen = sizeof(H2H3_PSEUDO_METHOD) - 1;
 -  nva[0].value = hdbuf;
 -  nva[0].valuelen = (size_t)(end - hdbuf);
-+  /* curl-chromium: Set the index of ":method" based on libcurl option */
++  /* curl-impersonate: Set the index of ":method" based on libcurl option */
 +  if(http2_pseudo_header_index(data, ":authority", &authority_idx))
 +    goto fail;
 +  if(http2_pseudo_header_index(data, ":method", &header_idx))
@@ -1167,8 +663,10 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
 -  nva[1].namelen = sizeof(H2H3_PSEUDO_PATH) - 1;
 -  nva[1].value = hdbuf;
 -  nva[1].valuelen = (end - hdbuf);
-+    
-+  /* curl-chromium: Set the index of ":path" based on libcurl option */
+ 
+-  nva[2].name = H2H3_PSEUDO_SCHEME;
+-  nva[2].namelen = sizeof(H2H3_PSEUDO_SCHEME) - 1;
++  /* curl-impersonate: Set the index of ":path" based on libcurl option */
 +  if(http2_pseudo_header_index(data, ":path", &header_idx))
 +    goto fail;
 +  if(header_idx > authority_idx)
@@ -1178,16 +676,14 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
 +  nva[header_idx].value = hdbuf;
 +  nva[header_idx].valuelen = (end - hdbuf);
 +
-+  /* curl-chromium: Set the index of ":scheme" based on libcurl option */
++  /* curl-impersonate: Set the index of ":scheme" based on libcurl option */
 +  if(http2_pseudo_header_index(data, ":scheme", &header_idx))
 +    goto fail;
 +  if(header_idx > authority_idx)
 +    header_idx--;
 +  nva[header_idx].name = H2H3_PSEUDO_SCHEME;
 +  nva[header_idx].namelen = sizeof(H2H3_PSEUDO_SCHEME) - 1;
- 
--  nva[2].name = H2H3_PSEUDO_SCHEME;
--  nva[2].namelen = sizeof(H2H3_PSEUDO_SCHEME) - 1;
++
    vptr = Curl_checkheaders(data, STRCONST(H2H3_PSEUDO_SCHEME));
    if(vptr) {
      vptr += sizeof(H2H3_PSEUDO_SCHEME);
@@ -1214,7 +710,7 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
      ++i;
    }
  
-+  /* curl-chromium: Set the index of ":authority" based on libcurl option */
++  /* curl-impersonate: Set the index of ":authority" based on libcurl option */
 +  if(http2_pseudo_header_index(data, ":authority", &header_idx))
 +    goto fail;
 +
@@ -1227,9 +723,16 @@ diff -Naru ../curl-7.87.0/lib/h2h3.c ./lib/h2h3.c
        nva[i] = nva[i - 1];
      }
      nva[i] = authority;
+@@ -306,4 +375,4 @@
+   free(hp);
+ }
+ 
+-#endif /* USE_NGHTTP2 or HTTP/3 enabled */
++#endif /* USE_NGHTTP2 or HTTP/3 enabled */
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/http.c ./lib/http.c
 --- ../curl-7.87.0/lib/http.c	2022-12-20 15:51:19.000000000 +0300
-+++ ./lib/http.c	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/http.c	2023-06-27 00:37:19.373391228 +0300
 @@ -87,6 +87,7 @@
  #include "hsts.h"
  #include "ws.h"
@@ -1243,7 +746,7 @@ diff -Naru ../curl-7.87.0/lib/http.c ./lib/http.c
    int i;
  
 +  /*
-+   * curl-chromium: Use the merged list of headers if it exists (i.e. when
++   * curl-impersonate: Use the merged list of headers if it exists (i.e. when
 +   * the CURLOPT_HTTPBASEHEADER option was set.
 +   */
 +  struct curl_slist *noproxyheaders =
@@ -1287,11 +790,11 @@ diff -Naru ../curl-7.87.0/lib/http.c ./lib/http.c
  }
  
 +/*
-+ * curl-chromium:
++ * curl-impersonate:
 + * Create a new linked list of headers.
 + * The new list is a merge between the "base" headers and the application given
-+ * headers. The "base" headers contain curl-chromium's list of headers
-+ * used by default by the chromiumd browser.
++ * headers. The "base" headers contain curl-impersonate's list of headers
++ * used by default by the impersonated browser.
 + *
 + * The application given headers will override the "base" headers if supplied.
 + */
@@ -1395,7 +898,7 @@ diff -Naru ../curl-7.87.0/lib/http.c ./lib/http.c
    http = data->req.p.http;
    DEBUGASSERT(http);
  
-+  /* curl-chromium: Add HTTP headers to chromium real browsers. */
++  /* curl-impersonate: Add HTTP headers to impersonate real browsers. */
 +  result = Curl_http_merge_headers(data);
 +  if (result)
 +    return result;
@@ -1405,20 +908,20 @@ diff -Naru ../curl-7.87.0/lib/http.c ./lib/http.c
      return result;
 diff -Naru ../curl-7.87.0/lib/http.h ./lib/http.h
 --- ../curl-7.87.0/lib/http.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/http.h	2023-06-26 19:25:53.466633690 +0300
++++ ./lib/http.h	2023-06-27 00:37:19.373391228 +0300
 @@ -342,7 +342,8 @@
    struct h2settings settings;
  
    /* list of settings that will be sent */
 -  nghttp2_settings_entry local_settings[3];
-+  /* curl-chromium: Align HTTP/2 settings to Chrome's */
++  /* curl-impersonate: Align HTTP/2 settings to Chrome's */
 +  nghttp2_settings_entry local_settings[8];
    size_t local_settings_num;
  #else
    int unused; /* prevent a compiler warning */
 diff -Naru ../curl-7.87.0/lib/http2.c ./lib/http2.c
 --- ../curl-7.87.0/lib/http2.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/http2.c	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/http2.c	2023-06-27 00:37:19.373391228 +0300
 @@ -46,6 +46,7 @@
  #include "curl_printf.h"
  #include "curl_memory.h"
@@ -1440,7 +943,7 @@ diff -Naru ../curl-7.87.0/lib/http2.c ./lib/http2.c
                                      CURLcode *err);
  
  /*
-+ * curl-chromium: Use Chrome's default HTTP/2 stream weight.
++ * curl-impersonate: Use Chrome's default HTTP/2 stream weight.
 + */
 +
 +#define CHROME_DEFAULT_STREAM_WEIGHT    (256)
@@ -1482,7 +985,7 @@ diff -Naru ../curl-7.87.0/lib/http2.c ./lib/http2.c
 -
 -  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
 -  iv[2].value = data->multi->push_cb != NULL;
-+  /* curl-chromium: Align HTTP/2 settings to Chrome's */
++  /* curl-impersonate: Align HTTP/2 settings to Chrome's */
 +  iv[i].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
 +  iv[i].value = 0x10000;
 +  i++;
@@ -1504,8 +1007,8 @@ diff -Naru ../curl-7.87.0/lib/http2.c ./lib/http2.c
 +  iv[i].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
 +  iv[i].value = 0x40000;
 +  i++;
-+  
-+  // curl-chromium:
++
++  // curl-impersonate:
 +  // Up until Chrome 98, there was a randomly chosen setting number in the
 +  // HTTP2 SETTINGS frame. This might be something similar to TLS GREASE.
 +  // However, it seems to have been removed since.
@@ -1519,33 +1022,644 @@ diff -Naru ../curl-7.87.0/lib/http2.c ./lib/http2.c
  void Curl_http2_done(struct Curl_easy *data, bool premature)
 diff -Naru ../curl-7.87.0/lib/http2.h ./lib/http2.h
 --- ../curl-7.87.0/lib/http2.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/http2.h	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/http2.h	2023-06-27 00:37:19.373391228 +0300
 @@ -31,7 +31,8 @@
  
  /* value for MAX_CONCURRENT_STREAMS we use until we get an updated setting
     from the peer */
 -#define DEFAULT_MAX_CONCURRENT_STREAMS 100
-+/* curl-chromium: Use 1000 concurrent streams like Chrome. */
++/* curl-impersonate: Use 1000 concurrent streams like Chrome. */
 +#define DEFAULT_MAX_CONCURRENT_STREAMS 1000
  
  /*
   * Store nghttp2 version info in this buffer.
+diff -Naru ../curl-7.87.0/lib/impersonate.c ./lib/impersonate.c
+--- ../curl-7.87.0/lib/impersonate.c	1970-01-01 03:00:00.000000000 +0300
++++ ./lib/impersonate.c	2023-06-27 00:37:19.383391273 +0300
+@@ -0,0 +1,550 @@
++#include "curl_setup.h"
++#include "../include/curl/curl.h"
++
++#include "impersonate.h"
++
++const struct impersonate_opts impersonations[] = {
++  {
++    .target = "chrome99",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "chrome100",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"100\", \"Google Chrome\";v=\"100\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "chrome101",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"101\", \"Google Chrome\";v=\"101\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "chrome104",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"104\", \" Not A;Brand\";v=\"99\", \"Google Chrome\";v=\"104\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "chrome107",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Google Chrome\";v=\"107\", \"Chromium\";v=\"107\", \"Not=A?Brand\";v=\"24\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    },
++    .http2_no_server_push = true
++  },
++  {
++      .target = "chrome110",
++      .httpversion = CURL_HTTP_VERSION_2_0,
++      .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++      .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++      .alpn = true,
++      .alps = true,
++      .tls_permute_extensions = true,
++      .tls_session_ticket = true,
++      .cert_compression = "brotli",
++      .http_headers = {
++              "sec-ch-ua: \"Chromium\";v=\"110\", \"Not A(Brand\";v=\"24\", \"Google Chrome\";v=\"110\"",
++              "sec-ch-ua-mobile: ?0",
++              "sec-ch-ua-platform: \"Windows\"",
++              "Upgrade-Insecure-Requests: 1",
++              "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
++              "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++              "Sec-Fetch-Site: none",
++              "Sec-Fetch-Mode: navigate",
++              "Sec-Fetch-User: ?1",
++              "Sec-Fetch-Dest: document",
++              "Accept-Encoding: gzip, deflate, br",
++              "Accept-Language: en-US,en;q=0.9"
++      },
++      .http2_no_server_push = true
++  },
++  {
++      .target = "chrome114",
++      .httpversion = CURL_HTTP_VERSION_2_0,
++      .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++      .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++      .alpn = true,
++      .alps = true,
++      .tls_permute_extensions = true,
++      .tls_session_ticket = true,
++      .cert_compression = "brotli",
++      .http_headers = {
++              "sec-ch-ua: \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\"",
++              "sec-ch-ua-mobile: ?0",
++              "sec-ch-ua-platform: \"Windows\"",
++              "Upgrade-Insecure-Requests: 1",
++              "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
++              "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++              "Sec-Fetch-Site: none",
++              "Sec-Fetch-Mode: navigate",
++              "Sec-Fetch-User: ?1",
++              "Sec-Fetch-Dest: document",
++              "Accept-Encoding: gzip, deflate, br",
++              "Accept-Language: en-US,en;q=0.9"
++      },
++      .http2_no_server_push = true
++  },
++  {
++    .target = "chrome99_android",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"",
++      "sec-ch-ua-mobile: ?1",
++      "sec-ch-ua-platform: \"Android\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.58 Mobile Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "edge99",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Microsoft Edge\";v=\"99\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36 Edg/99.0.1150.30",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "edge101",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"101\", \"Microsoft Edge\";v=\"101\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36 Edg/101.0.1210.47",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "edge115",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .alpn = true,
++    .alps = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Not/A)Brand\";v=\"99\", \"Microsoft Edge\";v=\"115\", \"Chromium\";v=\"115\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.151",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br",
++      "Accept-Language: en-US,en;q=0.9"
++    }
++  },
++  {
++    .target = "safari15_3",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++        "TLS_AES_128_GCM_SHA256,"
++        "TLS_AES_256_GCM_SHA384,"
++        "TLS_CHACHA20_POLY1305_SHA256,"
++        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
++        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
++        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
++        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
++        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
++        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
++        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,"
++        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,"
++        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
++        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
++        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,"
++        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,"
++        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
++        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
++        "TLS_RSA_WITH_AES_256_GCM_SHA384,"
++        "TLS_RSA_WITH_AES_128_GCM_SHA256,"
++        "TLS_RSA_WITH_AES_256_CBC_SHA256,"
++        "TLS_RSA_WITH_AES_128_CBC_SHA256,"
++        "TLS_RSA_WITH_AES_256_CBC_SHA,"
++        "TLS_RSA_WITH_AES_128_CBC_SHA,"
++        "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
++        "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
++        "TLS_RSA_WITH_3DES_EDE_CBC_SHA,",
++    .curves = "X25519:P-256:P-384:P-521",
++    .sig_hash_algs =
++        "ecdsa_secp256r1_sha256,"
++        "rsa_pss_rsae_sha256,"
++        "rsa_pkcs1_sha256,"
++        "ecdsa_secp384r1_sha384,"
++        "ecdsa_sha1,"
++        "rsa_pss_rsae_sha384,"
++        "rsa_pss_rsae_sha384,"
++        "rsa_pkcs1_sha384,"
++        "rsa_pss_rsae_sha512,"
++        "rsa_pkcs1_sha512,"
++        "rsa_pkcs1_sha1",
++    .alpn = true,
++    .alps = false,
++    .tls_session_ticket = false,
++    .http_headers = {
++        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.3 Safari/605.1.15",
++        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++        "Accept-Language: en-us",
++        "Accept-Encoding: gzip, deflate, br"
++    },
++    .http2_pseudo_headers_order = "mspa"
++  },
++  {
++    .target = "safari15_5",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
++      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
++      "TLS_RSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_RSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_RSA_WITH_AES_256_CBC_SHA,"
++      "TLS_RSA_WITH_AES_128_CBC_SHA,"
++      "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
++      "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
++      "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
++    .curves = "X25519:P-256:P-384:P-521",
++    .sig_hash_algs =
++      "ecdsa_secp256r1_sha256,"
++      "rsa_pss_rsae_sha256,"
++      "rsa_pkcs1_sha256,"
++      "ecdsa_secp384r1_sha384,"
++      "ecdsa_sha1,"
++      "rsa_pss_rsae_sha384,"
++      "rsa_pss_rsae_sha384,"
++      "rsa_pkcs1_sha384,"
++      "rsa_pss_rsae_sha512,"
++      "rsa_pkcs1_sha512,"
++      "rsa_pkcs1_sha1",
++    .alpn = true,
++    .alps = false,
++    .tls_session_ticket = false,
++    .cert_compression = "zlib",
++    .http_headers = {
++        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15",
++        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++        "Accept-Language: en-GB,en-US;q=0.9,en;q=0.8",
++        "Accept-Encoding: gzip, deflate, br"
++    },
++    .http2_pseudo_headers_order = "mspa"
++  },
++  {
++    /* Last one must be NULL. */
++    .target = NULL
++  }
++};
+\ No newline at end of file
+diff -Naru ../curl-7.87.0/lib/impersonate.h ./lib/impersonate.h
+--- ../curl-7.87.0/lib/impersonate.h	1970-01-01 03:00:00.000000000 +0300
++++ ./lib/impersonate.h	2023-06-27 00:37:19.383391273 +0300
+@@ -0,0 +1,45 @@
++#ifndef HEADER_CURL_IMPERSONATE_H
++#define HEADER_CURL_IMPERSONATE_H
++
++#define IMPERSONATE_MAX_HEADERS 32
++
++/*
++ * curl-impersonate: Options to be set for each supported target browser.
++ */
++struct impersonate_opts {
++  const char *target;
++  int httpversion;
++  int ssl_version;
++  const char *ciphers;
++  /* Elliptic curves (TLS extension 10).
++   * Passed to CURLOPT_SSL_EC_CURVES */
++  const char *curves;
++  /* Signature hash algorithms (TLS extension 13).
++   * Passed to CURLOPT_SSL_SIG_HASH_ALGS */
++  const char *sig_hash_algs;
++  /* Enable TLS NPN extension. */
++  bool npn;
++  /* Enable TLS ALPN extension. */
++  bool alpn;
++  /* Enable TLS ALPS extension. */
++  bool alps;
++  /* Enable TLS session ticket extension. */
++  bool tls_session_ticket;
++  /* TLS certificate compression algorithms.
++   * (TLS extension 27) */
++  const char *cert_compression;
++  const char *http_headers[IMPERSONATE_MAX_HEADERS];
++  const char *http2_pseudo_headers_order;
++  bool http2_no_server_push;
++  bool tls_permute_extensions;
++  /* Other TLS options will come here in the future once they are
++   * configurable through curl_easy_setopt() */
++};
++
++/*
++ * curl-impersonate: Global array of supported browsers and their
++ * impersonation options.
++ */
++extern const struct impersonate_opts impersonations[];
++
++#endif /* HEADER_CURL_IMPERSONATE_H */
 diff -Naru ../curl-7.87.0/lib/multi.c ./lib/multi.c
 --- ../curl-7.87.0/lib/multi.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/multi.c	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/multi.c	2023-06-27 00:37:19.383391273 +0300
 @@ -416,7 +416,8 @@
  
    /* -1 means it not set by user, use the default value */
    multi->maxconnects = -1;
 -  multi->max_concurrent_streams = 100;
-+  /* curl-chromium: Use 1000 concurrent streams like Chrome. */
++  /* curl-impersonate: Use 1000 concurrent streams like Chrome. */
 +  multi->max_concurrent_streams = 1000;
  
  #ifdef USE_WINSOCK
    multi->wsa_event = WSACreateEvent();
+@@ -3742,4 +3743,4 @@
+ {
+   DEBUGASSERT(multi);
+   return multi->max_concurrent_streams;
+-}
++}
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/setopt.c ./lib/setopt.c
 --- ../curl-7.87.0/lib/setopt.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/setopt.c	2023-06-26 21:08:52.252136946 +0300
++++ ./lib/setopt.c	2023-06-27 00:37:19.383391273 +0300
 @@ -50,6 +50,7 @@
  #include "multiif.h"
  #include "altsvc.h"
@@ -1554,15 +1668,15 @@ diff -Naru ../curl-7.87.0/lib/setopt.c ./lib/setopt.c
  
  /* The last 3 #include files should be in this order */
  #include "curl_printf.h"
-@@ -709,6 +710,23 @@
-                             va_arg(param, char *));
-     break;
+@@ -976,6 +977,43 @@
+ # endif
+ #endif
  
 +  case CURLOPT_HTTPBASEHEADER:
 +    /*
-+     * curl-chromium:
++     * curl-impersonate:
 +     * Set a list of "base" headers. These will be merged with any headers
-+     * set by CURLOPT_HTTPHEADER. curl-chromium uses this option in order
++     * set by CURLOPT_HTTPHEADER. curl-impersonate uses this option in order
 +     * to set a list of default browser headers.
 +     *
 +     * Unlike CURLOPT_HTTPHEADER,
@@ -1573,15 +1687,7 @@ diff -Naru ../curl-7.87.0/lib/setopt.c ./lib/setopt.c
 +      Curl_slist_duplicate(va_arg(param, struct curl_slist *));
 +    if (!data->state.base_headers)
 +      result = CURLE_OUT_OF_MEMORY;
-+    break; 
-+
- #ifndef CURL_DISABLE_PROXY
-   case CURLOPT_PROXYHEADER:
-     /*
-@@ -2376,6 +2394,27 @@
-     result = Curl_setstropt(&data->set.str[STRING_SSL_EC_CURVES],
-                             va_arg(param, char *));
-     break;
++    break;
 +
 +  case CURLOPT_SSL_SIG_HASH_ALGS:
 +    /*
@@ -1602,6 +1708,14 @@ diff -Naru ../curl-7.87.0/lib/setopt.c ./lib/setopt.c
 +    result = Curl_setstropt(&data->set.str[STRING_SSL_CERT_COMPRESSION],
 +                            va_arg(param, char *));
 +    break;
++
+   case CURLOPT_HTTPAUTH:
+     /*
+      * Set HTTP Authentication type BITMASK.
+@@ -2376,6 +2414,7 @@
+     result = Curl_setstropt(&data->set.str[STRING_SSL_EC_CURVES],
+                             va_arg(param, char *));
+     break;
 +
  #endif
    case CURLOPT_IPRESOLVE:
@@ -1629,16 +1743,23 @@ diff -Naru ../curl-7.87.0/lib/setopt.c ./lib/setopt.c
  #ifdef USE_UNIX_SOCKETS
    case CURLOPT_UNIX_SOCKET_PATH:
      data->set.abstract_unix_socket = FALSE;
+@@ -3151,4 +3206,4 @@
+ 
+   va_end(arg);
+   return result;
+-}
++}
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/transfer.c ./lib/transfer.c
 --- ../curl-7.87.0/lib/transfer.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/transfer.c	2023-06-26 19:25:53.466633690 +0300
++++ ./lib/transfer.c	2023-06-27 00:37:19.383391273 +0300
 @@ -105,7 +105,15 @@
    DEBUGASSERT(thislen);
    DEBUGASSERT(thisheader[thislen-1] != ':');
  
 -  for(head = data->set.headers; head; head = head->next) {
 +  /*
-+   * curl-chromium:
++   * curl-impersonate:
 +   * Check if we have overriden the user-supplied list of headers.
 +   */
 +  head = data->set.headers;
@@ -1651,14 +1772,14 @@ diff -Naru ../curl-7.87.0/lib/transfer.c ./lib/transfer.c
        return head->data;
 diff -Naru ../curl-7.87.0/lib/url.c ./lib/url.c
 --- ../curl-7.87.0/lib/url.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/url.c	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/url.c	2023-06-27 00:37:19.383391273 +0300
 @@ -469,6 +469,11 @@
    Curl_safefree(data->state.aptr.proxyuser);
    Curl_safefree(data->state.aptr.proxypasswd);
  
-+  /* curl-chromium: Free the list set by CURLOPT_HTTPBASEHEADER. */
++  /* curl-impersonate: Free the list set by CURLOPT_HTTPBASEHEADER. */
 +  curl_slist_free_all(data->state.base_headers);
-+  /* curl-chromium: Free the dynamic list of headers. */
++  /* curl-impersonate: Free the dynamic list of headers. */
 +  curl_slist_free_all(data->state.merged_headers);
 +
  #ifndef CURL_DISABLE_DOH
@@ -1687,26 +1808,33 @@ diff -Naru ../curl-7.87.0/lib/url.c ./lib/url.c
        if(data->set.ssl_enable_alpn)
          conn->bits.tls_enable_alpn = TRUE;
 +
-+      /* curl-chromium: Turn on ALPS if ALPN is enabled and the bit is
++      /* curl-impersonate: Turn on ALPS if ALPN is enabled and the bit is
 +       * enabled. */
 +      if(data->set.ssl_enable_alps)
-+        conn->bits.tls_enable_alps = TRUE;        
++        conn->bits.tls_enable_alps = TRUE;
      }
  
-+    /* curl-chromium: Add the TLS session ticket extension. */
++    /* curl-impersonate: Add the TLS session ticket extension. */
 +    if(data->set.ssl_enable_ticket)
 +        conn->bits.tls_enable_ticket = TRUE;
 +
-+    /* curl-chromium: Add the TLS extension permutation. */
++    /* curl-impersonate: Add the TLS extension permutation. */
 +    if(data->set.ssl_permute_extensions)
 +        conn->bits.tls_permute_extensions = TRUE;
 +
      if(waitpipe)
        /* There is a connection that *might* become usable for multiplexing
           "soon", and we wait for that */
+@@ -4017,4 +4039,4 @@
+   Curl_pgrsSetDownloadCounter(data, 0);
+ 
+   return CURLE_OK;
+-}
++}
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
 --- ../curl-7.87.0/lib/urldata.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/urldata.h	2023-06-26 19:25:53.476633719 +0300
++++ ./lib/urldata.h	2023-06-27 01:08:39.716584474 +0300
 @@ -287,6 +287,8 @@
    enum CURL_TLSAUTH authtype; /* TLS authentication type (default SRP) */
  #endif
@@ -1716,29 +1844,37 @@ diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
    unsigned char ssl_options;  /* the CURLOPT_SSL_OPTIONS bitmask */
    BIT(verifypeer);       /* set TRUE if this is desired */
    BIT(verifyhost);       /* set TRUE if CN/SAN must match hostname */
-@@ -534,6 +536,9 @@
+@@ -300,6 +302,7 @@
+   curl_ssl_ctx_callback fsslctx; /* function to initialize ssl ctx */
+   void *fsslctxp;        /* parameter for call back */
+   char *cert_type; /* format for certificate (default: PEM)*/
++  char *cert_compression;
+   char *key; /* private key file name */
+   struct curl_blob *key_blob;
+   char *key_type; /* format for private key (default: PEM) */
+@@ -534,6 +537,9 @@
    BIT(multiplex); /* connection is multiplexed */
    BIT(tcp_fastopen); /* use TCP Fast Open */
    BIT(tls_enable_alpn); /* TLS ALPN extension? */
 +  BIT(tls_enable_alps); /* TLS ALPS extension? */
 +  BIT(tls_enable_ticket); /* TLS session ticket extension? */
-+  BIT(tls_permute_extensions); /* TLS extension permutations */  
++  BIT(tls_permute_extensions); /* TLS extension permutations */
  #ifndef CURL_DISABLE_DOH
    BIT(doh);
  #endif
-@@ -1424,6 +1429,19 @@
+@@ -1424,6 +1430,19 @@
    CURLcode hresult; /* used to pass return codes back from hyper callbacks */
  #endif
  
 +  /*
-+   * curl-chromium:
++   * curl-impersonate:
 +   * List of "base" headers set by CURLOPT_HTTPBASEHEADER.
 +   */
 +  struct curl_slist *base_headers;
 +  /*
-+   * curl-chromium:
++   * curl-impersonate:
 +   * Dynamically-constructed list of HTTP headers.
-+   * This list is a merge of the default HTTP headers needed to chromium a
++   * This list is a merge of the default HTTP headers needed to impersonate a
 +   * browser, together with any user-supplied headers.
 +   */
 +  struct curl_slist *merged_headers;
@@ -1746,7 +1882,7 @@ diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
    /* Dynamically allocated strings, MUST be freed before this struct is
       killed. */
    struct dynamically_allocated_data {
-@@ -1582,6 +1600,9 @@
+@@ -1582,6 +1601,9 @@
    STRING_DNS_LOCAL_IP4,
    STRING_DNS_LOCAL_IP6,
    STRING_SSL_EC_CURVES,
@@ -1756,7 +1892,7 @@ diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
  
    /* -- end of null-terminated strings -- */
  
-@@ -1871,6 +1892,9 @@
+@@ -1871,6 +1893,9 @@
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
@@ -1766,7 +1902,7 @@ diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1889,6 +1913,9 @@
+@@ -1889,6 +1914,9 @@
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
@@ -1776,9 +1912,16 @@ diff -Naru ../curl-7.87.0/lib/urldata.h ./lib/urldata.h
  #ifdef USE_WEBSOCKETS
    BIT(ws_raw_mode);
  #endif
+@@ -1981,4 +2009,4 @@
+ 
+ #define LIBCURL_NAME "libcurl"
+ 
+-#endif /* HEADER_CURL_URLDATA_H */
++#endif /* HEADER_CURL_URLDATA_H */
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 --- ../curl-7.87.0/lib/vtls/openssl.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/vtls/openssl.c	2023-06-26 21:43:38.696860526 +0300
++++ ./lib/vtls/openssl.c	2023-06-27 01:05:57.299985803 +0300
 @@ -80,6 +80,13 @@
  #include <openssl/buffer.h>
  #include <openssl/pkcs12.h>
@@ -2000,7 +2143,7 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 +  sizeof(cert_compress_algs) / sizeof(cert_compress_algs[0])
 +
 +/*
-+ * curl-chromium:
++ * curl-impersonate:
 + * Add support for TLS extension 27 - compress_certificate.
 + * This calls the BoringSSL-specific API SSL_CTX_add_cert_compression_alg
 + * for each algorithm specified in cert_compression, which is a comma separated list.
@@ -2065,7 +2208,7 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
  #ifdef SSL_OP_NO_TICKET
 -  ctx_options |= SSL_OP_NO_TICKET;
 +  if(cf->conn->bits.tls_enable_ticket) {
-+  /* curl-chromium:
++  /* curl-impersonate:
 +   * Turn off SSL_OP_NO_TICKET, we want TLS extension 35 (session_ticket)
 +   * to be present in the client hello. */
 +    ctx_options &= ~SSL_OP_NO_TICKET;
@@ -2083,7 +2226,7 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 +  {
 +    uint16_t algs[MAX_SIG_ALGS];
 +    size_t nalgs;
-+    /* curl-chromium: Set the signature algorithms (TLS extension 13).
++    /* curl-impersonate: Set the signature algorithms (TLS extension 13).
 +     * See net/socket/ssl_client_socket_impl.cc in Chromium's source. */
 +    char *sig_hash_algs = conn_config->sig_hash_algs;
 +    if (sig_hash_algs) {
@@ -2115,8 +2258,8 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
    }
  #endif
  
-+  /* curl-chromium:
-+   * Configure BoringSSL to behave like Chrome. 
++  /* curl-impersonate:
++   * Configure BoringSSL to behave like Chrome.
 +   * See Constructor of SSLContext at net/socket/ssl_client_socket_impl.cc
 +   * and SSLClientSocketImpl::Init()
 +   * in the Chromium's source code. */
@@ -2125,17 +2268,17 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 +  SSL_CTX_set_grease_enabled(backend->ctx, 1);
 +
 +  /*
-+   * curl-chromium: Enable TLS extension permutation, enabled by default
++   * curl-impersonate: Enable TLS extension permutation, enabled by default
 +   * since Chrome 110.
 +   */
 +  if(cf->conn->bits.tls_permute_extensions) {
 +    SSL_CTX_set_permute_extensions(backend->ctx, 1);
 +  }
 +
-+  if(conn_config->cert_compression &&
++  if(ssl_config->cert_compression &&
 +     add_cert_compression(data,
 +                          backend->ctx,
-+                          conn_config->cert_compression))
++                          ssl_config->cert_compression))
 +    return CURLE_SSL_CIPHER;
 +
    result = set_up_x509_store(cf, data, backend);
@@ -2149,7 +2292,7 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 +  if(cf->conn->bits.tls_enable_alpn &&
 +     data->state.httpwant >= CURL_HTTP_VERSION_2 &&
 +     cf->conn->bits.tls_enable_alps) {
-+    /* curl-chromium: This adds the ALPS extension (17513).
++    /* curl-impersonate: This adds the ALPS extension (17513).
 +     * Chromium calls this function as well in SSLClientSocketImpl::Init().
 +     * The 4th parameter is called "settings", and I don't know what it
 +     * should contain. For now, use an empty string. */
@@ -2164,27 +2307,34 @@ diff -Naru ../curl-7.87.0/lib/vtls/openssl.c ./lib/vtls/openssl.c
 +  SSL_set_mode(backend->handle,
 +      SSL_MODE_CBC_RECORD_SPLITTING | SSL_MODE_ENABLE_FALSE_START);
 +
-+  /* curl-chromium: Enable TLS extensions 5 - status_request and
++  /* curl-impersonate: Enable TLS extensions 5 - status_request and
 +   * 18 - signed_certificate_timestamp. */
 +  SSL_enable_signed_cert_timestamps(backend->handle);
 +  SSL_enable_ocsp_stapling(backend->handle);
 +
-+  /* curl-chromium: Some SSL settings copied over from Chrome. */
++  /* curl-impersonate: Some SSL settings copied over from Chrome. */
 +  SSL_set_shed_handshake_config(backend->handle, 1);
 +
    backend->server_cert = 0x0;
  #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
    if((0 == Curl_inet_pton(AF_INET, hostname, &addr)) &&
+@@ -4981,4 +5326,4 @@
+   ossl_send,                /* send data to encrypt */
+ };
+ 
+-#endif /* USE_OPENSSL */
++#endif /* USE_OPENSSL */
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/lib/vtls/vtls.c ./lib/vtls/vtls.c
 --- ../curl-7.87.0/lib/vtls/vtls.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./lib/vtls/vtls.c	2023-06-26 19:13:57.617805780 +0300
++++ ./lib/vtls/vtls.c	2023-06-27 00:52:48.737118610 +0300
 @@ -155,6 +155,9 @@
       strcasecompare(data->cipher_list, needle->cipher_list) &&
       strcasecompare(data->cipher_list13, needle->cipher_list13) &&
       strcasecompare(data->curves, needle->curves) &&
 +     strcasecompare(data->sig_hash_algs, needle->sig_hash_algs) &&
 +     strcasecompare(data->cert_compression,
-+                              needle->cert_compression) &&     
++                              needle->cert_compression) &&
       strcasecompare(data->CRLfile, needle->CRLfile) &&
       strcasecompare(data->pinned_key, needle->pinned_key))
      return TRUE;
@@ -2206,44 +2356,72 @@ diff -Naru ../curl-7.87.0/lib/vtls/vtls.c ./lib/vtls/vtls.c
    Curl_safefree(sslc->CRLfile);
  #ifdef USE_TLS_SRP
    Curl_safefree(sslc->username);
+@@ -1820,4 +1827,4 @@
+   return NULL;
+ }
+ 
+-#endif /* USE_SSL */
++#endif /* USE_SSL */
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/libcurl.pc.in ./libcurl.pc.in
 --- ../curl-7.87.0/libcurl.pc.in	2022-11-28 10:44:52.000000000 +0300
-+++ ./libcurl.pc.in	2023-06-26 20:48:04.257302511 +0300
++++ ./libcurl.pc.in	2023-06-27 00:37:19.383391273 +0300
 @@ -36,6 +36,6 @@
  URL: https://curl.se/
  Description: Library to transfer files with ftp, http, etc.
  Version: @CURLVERSION@
 -Libs: -L${libdir} -lcurl @LIBCURL_NO_SHARED@
-+Libs: -L${libdir} -lcurl-chromium @LIBCURL_NO_SHARED@
++Libs: -L${libdir} -lcurl-impersonate-chrome @LIBCURL_NO_SHARED@
  Libs.private: @LIBCURL_LIBS@
  Cflags: -I${includedir} @CPPFLAG_CURL_STATICLIB@
 diff -Naru ../curl-7.87.0/src/Makefile.am ./src/Makefile.am
 --- ../curl-7.87.0/src/Makefile.am	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/Makefile.am	2023-06-26 20:48:04.257302511 +0300
++++ ./src/Makefile.am	2023-06-27 00:54:55.130997913 +0300
 @@ -43,7 +43,7 @@
                -I$(top_srcdir)/lib            \
                -I$(top_srcdir)/src
  
 -bin_PROGRAMS = curl
-+bin_PROGRAMS = curl-chromium
++bin_PROGRAMS = curl-impersonate-chrome
  
  SUBDIRS = ../docs
+ 
+@@ -54,9 +54,9 @@
+ include Makefile.inc
+ 
+ # CURL_FILES comes from Makefile.inc
+-curl_SOURCES = $(CURL_FILES)
++curl_impersonate_chrome_SOURCES = $(CURL_FILES)
+ if HAVE_WINDRES
+-curl_SOURCES += $(CURL_RCFILES)
++curl_impersonate_chrome_SOURCES += $(CURL_RCFILES)
+ $(CURL_RCFILES): tool_version.h
+ endif
  
 @@ -67,9 +67,9 @@
  LIBS = $(BLANK_AT_MAKETIME)
  
  if USE_EXPLICIT_LIB_DEPS
 -curl_LDADD = $(top_builddir)/lib/libcurl.la @LIBCURL_LIBS@
-+curl_chromium_LDADD = $(top_builddir)/lib/libcurl-chromium.la @LIBCURL_LIBS@
++curl_impersonate_chrome_LDADD = $(top_builddir)/lib/libcurl-impersonate-chrome.la @LIBCURL_LIBS@
  else
 -curl_LDADD = $(top_builddir)/lib/libcurl.la @NSS_LIBS@ @SSL_LIBS@ @ZLIB_LIBS@ @CURL_NETWORK_AND_TIME_LIBS@
-+curl_chromium_LDADD = $(top_builddir)/lib/libcurl-chromium.la @NSS_LIBS@ @SSL_LIBS@ @ZLIB_LIBS@ @CURL_NETWORK_AND_TIME_LIBS@
++curl_impersonate_chrome_LDADD = $(top_builddir)/lib/libcurl-impersonate-chrome.la @NSS_LIBS@ @SSL_LIBS@ @ZLIB_LIBS@ @CURL_NETWORK_AND_TIME_LIBS@
  endif
  
  # if unit tests are enabled, build a static library to link them with
+@@ -158,5 +158,5 @@
+ 
+ if HAVE_WINDRES
+ .rc.o:
+-	$(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
+-endif
++	$(LIBTOOL) --tag=RC --mode=compile $(RC) -I$(top_srcdir)/include -DCURL_EMBED_MANIFEST $(RCFLAGS) -i $< -o $@
++endif
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/src/tool_cfgable.h ./src/tool_cfgable.h
 --- ../curl-7.87.0/src/tool_cfgable.h	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/tool_cfgable.h	2023-06-26 18:30:01.838657798 +0300
++++ ./src/tool_cfgable.h	2023-06-27 00:37:19.383391273 +0300
 @@ -160,8 +160,12 @@
    bool crlf;
    char *customrequest;
@@ -2276,7 +2454,7 @@ diff -Naru ../curl-7.87.0/src/tool_cfgable.h ./src/tool_cfgable.h
    bool falsestart;
 diff -Naru ../curl-7.87.0/src/tool_getparam.c ./src/tool_getparam.c
 --- ../curl-7.87.0/src/tool_getparam.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/tool_getparam.c	2023-06-26 18:30:01.838657798 +0300
++++ ./src/tool_getparam.c	2023-06-27 00:37:19.383391273 +0300
 @@ -284,6 +284,13 @@
    {"EC", "etag-save",                ARG_FILENAME},
    {"ED", "etag-compare",             ARG_FILENAME},
@@ -2333,7 +2511,7 @@ diff -Naru ../curl-7.87.0/src/tool_getparam.c ./src/tool_getparam.c
        }
 diff -Naru ../curl-7.87.0/src/tool_listhelp.c ./src/tool_listhelp.c
 --- ../curl-7.87.0/src/tool_listhelp.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/tool_listhelp.c	2023-06-26 18:30:01.838657798 +0300
++++ ./src/tool_listhelp.c	2023-06-27 00:37:19.383391273 +0300
 @@ -108,6 +108,24 @@
    {"    --curves <algorithm list>",
     "(EC) TLS key exchange algorithm(s) to request",
@@ -2371,7 +2549,7 @@ diff -Naru ../curl-7.87.0/src/tool_listhelp.c ./src/tool_listhelp.c
     CURLHELP_CURL},
 diff -Naru ../curl-7.87.0/src/tool_operate.c ./src/tool_operate.c
 --- ../curl-7.87.0/src/tool_operate.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/tool_operate.c	2023-06-26 19:25:53.496633776 +0300
++++ ./src/tool_operate.c	2023-06-27 00:56:14.395204024 +0300
 @@ -1465,6 +1465,15 @@
              return result;
            }
@@ -2407,7 +2585,7 @@ diff -Naru ../curl-7.87.0/src/tool_operate.c ./src/tool_operate.c
            my_setopt_str(curl, CURLOPT_PROXY_TLS13_CIPHERS,
                          config->proxy_cipher13_list);
  
-+          /* curl-chromium */
++          /* curl-impersonate */
 +        if(config->ssl_permute_extensions)
 +            my_setopt(curl, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
 +
@@ -2429,15 +2607,32 @@ diff -Naru ../curl-7.87.0/src/tool_operate.c ./src/tool_operate.c
          /* new in 7.40.0, abstract support added in 7.53.0 */
          if(config->unix_socket_path) {
            if(config->abstract_unix_socket) {
+@@ -2751,4 +2780,4 @@
+   }
+ 
+   return result;
+-}
++}
+\ No newline at end of file
 diff -Naru ../curl-7.87.0/src/tool_setopt.c ./src/tool_setopt.c
 --- ../curl-7.87.0/src/tool_setopt.c	2022-12-19 10:48:23.000000000 +0300
-+++ ./src/tool_setopt.c	2023-06-26 18:30:01.838657798 +0300
-@@ -152,6 +152,8 @@
++++ ./src/tool_setopt.c	2023-06-27 00:37:19.383391273 +0300
+@@ -150,8 +150,10 @@
+ static const struct NameValue setopt_nv_CURLNONZERODEFAULTS[] = {
+   NV1(CURLOPT_SSL_VERIFYPEER, 1),
    NV1(CURLOPT_SSL_VERIFYHOST, 1),
-   NV1(CURLOPT_SSL_ENABLE_NPN, 1),
+-  NV1(CURLOPT_SSL_ENABLE_NPN, 1),
++  NV1(CURLOPT_SSL_ENABLE_NPN, 0),
    NV1(CURLOPT_SSL_ENABLE_ALPN, 1),
 +  NV1(CURLOPT_SSL_ENABLE_TICKET, 1),
 +  NV1(CURLOPT_SSL_PERMUTE_EXTENSIONS, 1),
    NV1(CURLOPT_TCP_NODELAY, 1),
    NV1(CURLOPT_PROXY_SSL_VERIFYPEER, 1),
    NV1(CURLOPT_PROXY_SSL_VERIFYHOST, 1),
+@@ -710,4 +712,4 @@
+ 
+ #else /* CURL_DISABLE_LIBCURL_OPTION */
+ 
+-#endif /* CURL_DISABLE_LIBCURL_OPTION */
++#endif /* CURL_DISABLE_LIBCURL_OPTION */
+\ No newline at end of file
