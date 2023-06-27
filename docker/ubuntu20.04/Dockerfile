@@ -20,7 +20,7 @@ RUN apt-get install -y autoconf automake autotools-dev pkg-config libtool
 # curl tries to load the CA certificates for libnss.
 # It loads them from /usr/lib/x86_64-linux-gnu/nss/libnssckbi.so,
 # which is supplied by libnss3 on Debian/Ubuntu
-RUN apt-get install -y libnss3
+RUN apt-get install -y libnss3 ca-certificates
 
 # Dependencies for downloading and building BoringSSL
 RUN apt-get install -y g++ golang-go
@@ -146,6 +146,8 @@ RUN chmod +x out/curl_*
 # Create a final, minimal image with the compiled binaries
 # only.
 FROM ubuntu:20.04
+# Copy curl-chromium from the builder image
+COPY --from=builder  /etc/ssl /etc/ssl
 # Copy curl-chromium from the builder image
 COPY --from=builder /build/install /usr/local
 # Wrapper scripts
