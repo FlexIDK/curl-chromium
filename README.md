@@ -1,4 +1,4 @@
-# curl-impersonate
+# curl-chromium
 
 A special build of curl that can impersonate the major browsers: Chrome, Edge, Safari. curl-impersonate is able to perform TLS and HTTP handshakes that are identical to that of a real browser.
 
@@ -19,6 +19,15 @@ curl_edge_101 -v -L https://www.ozon.ru/
 curl_edge_115 -v -L https://www.ozon.ru/
 curl_safari_15_3 -v -L https://www.ozon.ru/
 curl_safari_15_5 -v -L https://www.ozon.ru/
+```
+
+### Docker
+
+```shell
+docker build --tag curl_chromium ./
+docker run --name curl_chromium -td curl_chromium
+docker exec -it curl_chromium curl_edge_115 --version
+#curl 7.88.1 (x86_64-pc-linux-musl) libcurl/7.88.1 BoringSSL zlib/1.2.13 brotli/1.0.9 nghttp2/1.54.0
 ```
 
 ## Using libcurl-impersonate in PHP scripts

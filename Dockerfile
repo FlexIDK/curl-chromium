@@ -106,6 +106,7 @@ RUN cd curl-${CURL_VERSION} && \
 RUN mkdir out && \
     cp /build/install/bin/curl-impersonate-chrome out/ && \
     ln -s curl-impersonate-chrome out/curl-impersonate && \
+    ln -s curl-impersonate-chrome out/curl-chromium && \
     strip out/curl-impersonate-chrome
 
 # Verify that the resulting 'curl' has all the necessary features.
@@ -155,4 +156,4 @@ FROM alpine:3.18.2
 # Copy curl-chromium from the builder image
 COPY --from=builder /build/install /usr/local
 # Wrapper scripts
-COPY --from=builder /build/out/curl_* /usr/local/bin/
+COPY --from=builder /build/out/curl* /usr/local/bin/
