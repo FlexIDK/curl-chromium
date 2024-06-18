@@ -1,0 +1,287 @@
+diff -apurd ./ssl/internal.h ../boringssl/ssl/internal.h
+--- ./ssl/internal.h	2024-06-18 12:58:22.944595740 +0300
++++ ../boringssl/ssl/internal.h	2024-06-18 12:57:02.413621148 +0300
+@@ -588,6 +588,7 @@ BSSL_NAMESPACE_BEGIN
+ // Bits for |algorithm_auth| (server authentication).
+ #define SSL_aRSA_SIGN 0x00000001u
+ #define SSL_aRSA_DECRYPT 0x00000002u
++#define SSL_aRSA 0x00000001u
+ #define SSL_aECDSA 0x00000004u
+ // SSL_aPSK is set for both PSK and ECDHE_PSK.
+ #define SSL_aPSK 0x00000008u
+@@ -608,8 +609,13 @@ BSSL_NAMESPACE_BEGIN
+ // Bits for |algorithm_mac| (symmetric authentication).
+ #define SSL_SHA1 0x00000001u
+ #define SSL_SHA256 0x00000002u
++// curl-impersonate:
++// SSL_SHA384 was removed in
++// https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++// but restored to impersonate browsers with older ciphers.
++#define SSL_SHA384 0x00000004u
+ // SSL_AEAD is set for all AEADs.
+-#define SSL_AEAD 0x00000004u
++#define SSL_AEAD 0x00000008u
+ 
+ // Bits for |algorithm_prf| (handshake digest).
+ #define SSL_HANDSHAKE_MAC_DEFAULT 0x1
+diff -apurd ./ssl/ssl_cipher.cc ../boringssl/ssl/ssl_cipher.cc
+--- ./ssl/ssl_cipher.cc	2024-05-28 23:33:39.000000000 +0300
++++ ../boringssl/ssl/ssl_cipher.cc	2024-06-18 12:37:15.447723840 +0300
+@@ -197,8 +197,39 @@ static constexpr SSL_CIPHER kCiphers[] =
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
+-    // PSK cipher suites.
++    // curl-impersonate: Ciphers 3C, 3D were removed in
++    // https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored here to impersonate browsers with older ciphers. They are
++    // not expected to actually work; but just to be included in the TLS
++    // Client Hello.
++ 
++    // TLS v1.2 ciphersuites
++ 
++    // Cipher 3C
++    {
++     TLS1_TXT_RSA_WITH_AES_128_SHA256,
++     "TLS_RSA_WITH_AES_128_CBC_SHA256",
++     TLS1_CK_RSA_WITH_AES_128_SHA256,
++     SSL_kRSA,
++     SSL_aRSA,
++     SSL_AES128,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++    // Cipher 3D
++    {
++     TLS1_TXT_RSA_WITH_AES_256_SHA256,
++     "TLS_RSA_WITH_AES_256_CBC_SHA256",
++     TLS1_CK_RSA_WITH_AES_256_SHA256,
++     SSL_kRSA,
++     SSL_aRSA,
++     SSL_AES256,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
+ 
++    // PSK cipher suites.
++     
+     // Cipher 8C
+     {
+      TLS1_TXT_PSK_WITH_AES_128_CBC_SHA,
+@@ -287,6 +318,23 @@ static constexpr SSL_CIPHER kCiphers[] =
+       SSL_HANDSHAKE_MAC_SHA256,
+     },
+ 
++    // curl-impersonate: Cipher C008 was missing from BoringSSL,
++    // probably because it is weak. Add it back from OpenSSL (ssl/s3_lib.c)
++    // where it is called ECDHE-ECDSA-DES-CBC3-SHA.
++    // It's not supposed to really work but just appear in the TLS client hello.
++ 
++    // Cipher C008
++    {
++     "ECDHE-ECDSA-DES-CBC3-SHA",
++     "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA",
++     0x0300C008,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_3DES,
++     SSL_SHA1,
++     SSL_HANDSHAKE_MAC_DEFAULT,
++    },
++
+     // Cipher C009
+     {
+      TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+@@ -311,6 +359,21 @@ static constexpr SSL_CIPHER kCiphers[] =
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
++    // curl-impersonate: Cipher C012 was missing from BoringSSL,
++    // probably because it is weak. Add it back from OpenSSL (ssl/s3_lib.c)
++    // where it is called ECDHE-RSA-DES-CBC3-SHA
++    // It's not supposed to really work but just appear in the TLS client hello.
++    {
++     "ECDHE-RSA-DES-CBC3-SHA",
++     "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
++     0x0300C012,
++     SSL_kECDHE,
++     SSL_aRSA,
++     SSL_3DES,
++     SSL_SHA1,
++     SSL_HANDSHAKE_MAC_DEFAULT,
++    },
++
+     // Cipher C013
+     {
+      TLS1_TXT_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+@@ -335,6 +398,37 @@ static constexpr SSL_CIPHER kCiphers[] =
+      SSL_HANDSHAKE_MAC_DEFAULT,
+     },
+ 
++    // curl-impersonate: Ciphers C023, C024, C028 were removed in
++    // https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored here to impersonate browsers with older ciphers. They are
++    // not expected to actually work; but just to be included in the TLS
++    // Client Hello.
++
++    // HMAC based TLS v1.2 ciphersuites from RFC5289
++
++    // Cipher C023
++    {
++     TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_SHA256,
++     "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
++     TLS1_CK_ECDHE_ECDSA_WITH_AES_128_SHA256,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_AES128,
++     SSL_SHA256,
++     SSL_HANDSHAKE_MAC_SHA256,
++    },
++    // Cipher C024
++    {
++     TLS1_TXT_ECDHE_ECDSA_WITH_AES_256_SHA384,
++     "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
++     TLS1_CK_ECDHE_ECDSA_WITH_AES_256_SHA384,
++     SSL_kECDHE,
++     SSL_aECDSA,
++     SSL_AES256,
++     SSL_SHA384,
++     SSL_HANDSHAKE_MAC_SHA384,
++    },
++
+     // Cipher C027
+     {
+      TLS1_TXT_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+@@ -347,6 +441,18 @@ static constexpr SSL_CIPHER kCiphers[] =
+      SSL_HANDSHAKE_MAC_SHA256,
+     },
+ 
++    // Cipher C028
++    {
++     TLS1_TXT_ECDHE_RSA_WITH_AES_256_SHA384,
++     "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
++     TLS1_CK_ECDHE_RSA_WITH_AES_256_SHA384,
++     SSL_kECDHE,
++     SSL_aRSA,
++     SSL_AES256,
++     SSL_SHA384,
++     SSL_HANDSHAKE_MAC_SHA384,
++    },
++
+     // GCM based TLS v1.2 ciphersuites from RFC 5289
+ 
+     // Cipher C02B
+@@ -553,6 +659,11 @@ static const CIPHER_ALIAS kCipherAliases
+ 
+     // MAC aliases
+     {"SHA1", ~0u, ~0u, ~0u, SSL_SHA1, 0},
++    // curl-impersonate:
++    // Removed in https://boringssl-review.googlesource.com/c/boringssl/+/27944/
++    // but restored to impersonate browsers with older ciphers.
++    {"SHA256", ~0u, ~0u, ~0u, SSL_SHA256, 0},
++    {"SHA384", ~0u, ~0u, ~0u, SSL_SHA384, 0},    
+     {"SHA", ~0u, ~0u, ~0u, SSL_SHA1, 0},
+ 
+     // Legacy protocol minimum version aliases. "TLSv1" is intentionally the
+@@ -1168,6 +1279,14 @@ bool ssl_create_cipher_list(UniquePtr<SS
+       TLS1_CK_RSA_WITH_AES_256_SHA & 0xffff,
+       TLS1_CK_PSK_WITH_AES_256_CBC_SHA & 0xffff,
+       SSL3_CK_RSA_DES_192_CBC3_SHA & 0xffff,
++      // curl-impersonate: add legacy cipehrs.
++      TLS1_CK_RSA_WITH_AES_128_SHA256 & 0xffff,
++      TLS1_CK_RSA_WITH_AES_256_SHA256 & 0xffff,
++      0x0300C008 & 0xffff,
++      0x0300C012 & 0xffff,
++      TLS1_CK_ECDHE_ECDSA_WITH_AES_128_SHA256 & 0xffff,
++      TLS1_CK_ECDHE_ECDSA_WITH_AES_256_SHA384 & 0xffff,
++      TLS1_CK_ECDHE_RSA_WITH_AES_256_SHA384 & 0xffff,
+   };
+ 
+   // Set up a linked list of ciphers.
+diff -apurd ./ssl/ssl_privkey.cc ../boringssl/ssl/ssl_privkey.cc
+--- ./ssl/ssl_privkey.cc	2024-05-28 23:33:39.000000000 +0300
++++ ../boringssl/ssl/ssl_privkey.cc	2024-06-18 13:00:05.613123554 +0300
+@@ -523,44 +523,48 @@ int SSL_is_signature_algorithm_rsa_pss(u
+   return alg != nullptr && alg->is_rsa_pss;
+ }
+ 
+-static int compare_uint16_t(const void *p1, const void *p2) {
+-  uint16_t u1 = *((const uint16_t *)p1);
+-  uint16_t u2 = *((const uint16_t *)p2);
+-  if (u1 < u2) {
+-    return -1;
+-  } else if (u1 > u2) {
+-    return 1;
+-  } else {
+-    return 0;
+-  }
+-}
+-
+-static bool sigalgs_unique(Span<const uint16_t> in_sigalgs) {
+-  if (in_sigalgs.size() < 2) {
+-    return true;
+-  }
+-
+-  Array<uint16_t> sigalgs;
+-  if (!sigalgs.CopyFrom(in_sigalgs)) {
+-    return false;
+-  }
+-
+-  qsort(sigalgs.data(), sigalgs.size(), sizeof(uint16_t), compare_uint16_t);
+-
+-  for (size_t i = 1; i < sigalgs.size(); i++) {
+-    if (sigalgs[i - 1] == sigalgs[i]) {
+-      OPENSSL_PUT_ERROR(SSL, SSL_R_DUPLICATE_SIGNATURE_ALGORITHM);
+-      return false;
+-    }
+-  }
++// curl-impersonate: unused function
++//static int compare_uint16_t(const void *p1, const void *p2) {
++//  uint16_t u1 = *((const uint16_t *)p1);
++//  uint16_t u2 = *((const uint16_t *)p2);
++//  if (u1 < u2) {
++//    return -1;
++//  } else if (u1 > u2) {
++//    return 1;
++//  } else {
++//    return 0;
++//  }
++//}
+ 
+-  return true;
+-}
++// curl-impersonate: unused function
++//static bool sigalgs_unique(Span<const uint16_t> in_sigalgs) {
++//  if (in_sigalgs.size() < 2) {
++//    return true;
++//  }
++//
++//  Array<uint16_t> sigalgs;
++//  if (!sigalgs.CopyFrom(in_sigalgs)) {
++//    return false;
++//  }
++//
++//  qsort(sigalgs.data(), sigalgs.size(), sizeof(uint16_t), compare_uint16_t);
++//
++//  for (size_t i = 1; i < sigalgs.size(); i++) {
++//    if (sigalgs[i - 1] == sigalgs[i]) {
++//      OPENSSL_PUT_ERROR(SSL, SSL_R_DUPLICATE_SIGNATURE_ALGORITHM);
++//      return false;
++//    }
++//  }
++//
++//  return true;
++//}
+ 
+ static bool set_sigalg_prefs(Array<uint16_t> *out, Span<const uint16_t> prefs) {
+-  if (!sigalgs_unique(prefs)) {
+-    return false;
+-  }
++  // curl-impersonate: Remove the uniqueness check. Older Safari versions (15)
++  // send out duplicated algorithm prefs.
++  // if (!sigalgs_unique(prefs)) {
++  //  return false;
++  // }
+ 
+   // Check for invalid algorithms, and filter out |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
+   Array<uint16_t> filtered;

@@ -2,3 +2,5 @@ curl-*/
 curl-7.8*/
 .idea/
 curl-7.8*.tar.xz
+/tmp.md
+/Dockerfile.new
