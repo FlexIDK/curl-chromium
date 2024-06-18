@@ -1,11 +1,31 @@
+{{#alpine}}
 FROM alpine:3.20.0 as builder
+{{/alpine}}
+{{#ubuntu24}}
+FROM ubuntu:24.04 as builder
+{{/ubuntu24}}
+{{#ubuntu20}}
+FROM ubuntu:20.04 as builder
+{{/ubuntu20}}
 
 WORKDIR /build
 
 # Dependencies
 
+{{#alpine}}
 RUN apk update
 RUN apk add curl tar make build-base zlib-dev
+RUN apk add cmake
+RUN apk add ninja patch linux-headers perl pkgconfig go g++
+RUN apk add xz automake autoconf libtool
+{{/alpine}}
+{{#ubuntu}}
+RUN apt-get update && \
+    apt-get install -y ninja-build cmake curl zlib1g-dev
+RUN apt-get install -y autoconf automake autotools-dev pkg-config libtool
+RUN apt-get install -y bzip2 xz-utils
+RUN apt-get install -y g++ golang-go unzip patch
+{{/ubuntu}}
 
 #
 # nghttp2
@@ -28,8 +48,6 @@ RUN cd nghttp2-${NGHTTP2_VERSION} && \
 # libbrotli
 #
 
-RUN apk add cmake
-
 # Download and compile libbrotli
 ARG BROTLI_VERSION=1.0.9
 #ARG BROTLI_VERSION=1.1.0 # Doesn't compile
@@ -44,16 +62,19 @@ RUN cd brotli-${BROTLI_VERSION} && \
 # BoringSSL
 #
 
-RUN apk add ninja patch linux-headers perl pkgconfig go
-
-#ARG BORING_SSL_VERSION=fips-20220613
+{{#ubuntu20}}
 #ARG BORING_SSL_VERSION=fips-20230428 # Doesn't compile
 #ARG BORING_SSL_VERSION=chromium-stable # Doesn't compile
-ARG BORING_SSL_VERSION=1b7fdbd9101dedc3e0aa3fcf4ff74eacddb34ecc
 #ARG BORING_SSL_VERSION=fips-20240407
-#RUN curl -L https://github.com/google/boringssl/archive/refs/heads/${BORING_SSL_VERSION}.zip -o boringssl-${BORING_SSL_VERSION}.zip
+ARG BORING_SSL_VERSION=fips-20220613
+RUN curl -L https://github.com/google/boringssl/archive/refs/heads/${BORING_SSL_VERSION}.zip -o boringssl-${BORING_SSL_VERSION}.zip
+RUN unzip boringssl-${BORING_SSL_VERSION}.zip
+{{/ubuntu20}}
+{{^ubuntu20}}
+ARG BORING_SSL_VERSION=1b7fdbd9101dedc3e0aa3fcf4ff74eacddb34ecc
 RUN curl -L https://github.com/google/boringssl/archive/${BORING_SSL_VERSION}.zip -o boringssl-${BORING_SSL_VERSION}.zip
 RUN unzip boringssl-${BORING_SSL_VERSION}.zip
+{{/ubuntu20}}
 
 # Patch BoringSSL.
 COPY patches/boringssl-${BORING_SSL_VERSION}-*.patch boringssl-${BORING_SSL_VERSION}/
@@ -63,9 +84,12 @@ RUN cd boringssl-${BORING_SSL_VERSION} && \
 # Compile BoringSSL.
 RUN cd boringssl-${BORING_SSL_VERSION} && \
     mkdir build && cd build && \
+    CXX="g++" CC="gcc" \
     cmake  \
         -DCMAKE_C_FLAGS="-Wno-error=array-bounds -Wno-error=stringop-overflow" \
-        -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=on -GNinja .. && \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=on \
+        -GNinja .. && \
     ninja
 
 # Fix the directory structure so that curl can compile against it.
@@ -78,8 +102,6 @@ RUN mkdir boringssl-${BORING_SSL_VERSION}/build/lib && \
 #
 # Curl
 #
-
-RUN apk add xz automake autoconf libtool
 
 #ARG CURL_VERSION=curl-7.84.0
 #ARG CURL_VERSION=curl-7.85.0
@@ -158,13 +180,27 @@ RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | 
 RUN ! (ldd ./out/curl-impersonate | grep -q -e nghttp2 -e brotli -e ssl -e crypto)
 
 # Wrapper scripts
-COPY ./bin/curl_chrome* ./bin/curl_edge* ./bin/curl_safari* out/
+COPY bin/curl_chrome* bin/curl_edge* bin/curl_safari* out/
+
+{{#alpine}}
 # Replace /usr/bin/env bash with /usr/bin/env ash
 RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' out/curl_*
+{{/alpine}}
+
 RUN chmod +x out/curl_*
 
 # Create a final, minimal image with the compiled binaries only.
+
+{{#alpine}}
 FROM alpine:3.20.0
+{{/alpine}}
+{{#ubuntu24}}
+FROM ubuntu:24.04
+{{/ubuntu24}}
+{{#ubuntu20}}
+FROM ubuntu:20.04
+{{/ubuntu20}}
+
 # Copy curl-chromium from the builder image
 COPY --from=builder /build/install /usr/local
 # Wrapper scripts

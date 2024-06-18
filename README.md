@@ -2,7 +2,7 @@
 
 A special build of curl that can impersonate the major browsers: Chrome, Edge, Safari. curl-impersonate is able to perform TLS and HTTP handshakes that are identical to that of a real browser.
 
-## Emulated Browsers
+## Emulated browsers
 
 - Chrome 99
 - Chrome 100
@@ -57,13 +57,20 @@ curl_safari_15_5 -v -L https://www.ozon.ru/
 ### Docker
 
 ```shell
-docker build --tag curl_chromium ./
-docker run --name curl_chromium -td curl_chromium
-docker exec -it curl_chromium curl_edge_126 --version
-#curl 8.1.2 (x86_64-pc-linux-musl) libcurl/8.1.2 BoringSSL zlib/1.3.1 brotli/1.0.9 nghttp2/1.62.1
+# alpine 3.20.0
+docker build --tag curl_chromium_alpine -f ./docker/alpine/Dockerfile .
+docker run --name curl_chromium_alpine -td curl_chromium_alpine
+docker exec -it curl_chromium_alpine curl_edge_126 --version
+docker cp curl_chromium_alpine:/usr/local/lib/libcurl-impersonate-chrome.so.4.8.0 ~/
+docker cp curl_chromium_alpine:/usr/local/bin/curl-chromium ~/
 
-docker cp curl_chromium:/usr/local/lib/libcurl-impersonate-chrome.so.4.8.0 ~/
-docker cp curl_chromium:/usr/local/bin/curl-chromium ~/
+# ubuntu 24.04 / 20.04
+UBUNTU_VERSION=24
+docker build --tag curl_chromium_ubuntu${UBUNTU_VERSION} -f ./docker/ubuntu${UBUNTU_VERSION}/Dockerfile .
+docker run --name curl_chromium_ubuntu${UBUNTU_VERSION} -td curl_chromium_ubuntu${UBUNTU_VERSION}
+docker exec -it curl_chromium_ubuntu${UBUNTU_VERSION} curl_edge_126 --version
+docker cp curl_chromium_ubuntu${UBUNTU_VERSION}:/usr/local/lib/libcurl-impersonate-chrome.so.4.8.0 ~/
+docker cp curl_chromium_ubuntu${UBUNTU_VERSION}:/usr/local/bin/curl-chromium ~/
 ```
 
 ## Using libcurl-impersonate in PHP scripts
@@ -73,11 +80,7 @@ docker cp curl_chromium:/usr/local/bin/curl-chromium ~/
 First, patch libcurl-impersonate and change its SONAME:
 
 ```text
-apt-get install musl-dev
-ln -s /usr/lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
-
 # Patch libcurl-impersonate-chrome.so
-
 patchelf --set-soname libcurl.so.4 /path/to/libcurl-impersonate-chrome.so
 ```
 
@@ -95,11 +98,11 @@ If successful you should see:
 
 ## fork by [curl-impersonate](https://github.com/lwthiker/curl-impersonate)
 
-What's diffrent:
+What's different:
 - Update curl v8.1.2
 - Update brotli v1.0.9 
-- Update brotli-ssl #1b7fdbd9101dedc3e0aa3fcf4ff74eacddb34ecc
+- Update brotli-ssl to commit #1b7fdbd9101dedc3e0aa3fcf4ff74eacddb34ecc
 - Update nghttp2 v1.62.1
 - Add support new version edge/chrome (126)
-- Base on alpine v3.20.0 (latest)
+- Base on alpine v3.20.0 (latest) / Ubuntu 20 LTS / 24 LTS
 
